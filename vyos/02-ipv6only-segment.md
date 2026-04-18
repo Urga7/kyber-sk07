@@ -1,8 +1,5 @@
-## Split and reserve IPv6 segment for IPv6 traffic ----------
+## Split and reserve IPv6 segment for IPv6 traffic, set up SLAAC
 ```
-2001:1470:fffd:98::/64 → WAN (eth0, link to LRK)
-2001:1470:fffd:99::/64 → Internal (eth1)
-2001:1470:fffd:9a::/64 → DMZ (eth2)
 2001:1470:fffd:9b::/64 → NPTv6 external side (mapped to eth3)
 
 ULA used: fd07:1:1:1::/64
