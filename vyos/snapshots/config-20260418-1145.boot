@@ -5,18 +5,51 @@ interfaces {
         hw-id "00:0c:29:07:45:54"
     }
     ethernet eth1 {
+        address "10.7.0.1/24"
         description "Internal-Network"
         hw-id "00:0c:29:07:45:5e"
     }
     ethernet eth2 {
+        address "192.168.7.1/24"
         description "DMZ-Network"
         hw-id "00:0c:29:07:45:68"
     }
     ethernet eth3 {
+        address "fd07:1:1:1::1/64"
         description "IPv6-Only-Network"
         hw-id "00:0c:29:07:45:72"
     }
     loopback lo {
+    }
+}
+nat66 {
+    destination {
+        rule 10 {
+            description "NPTv6 ipv6only inbound"
+            destination {
+                address "2001:1470:fffd:9b::/64"
+            }
+            inbound-interface {
+                name "eth0"
+            }
+            translation {
+                address "fd07:1:1:1::/64"
+            }
+        }
+    }
+    source {
+        rule 10 {
+            description "NPTv6 ipv6only outbound"
+            outbound-interface {
+                name "eth0"
+            }
+            source {
+                prefix "fd07:1:1:1::/64"
+            }
+            translation {
+                address "2001:1470:fffd:9b::/64"
+            }
+        }
     }
 }
 protocols {
@@ -46,6 +79,13 @@ service {
         server time3.vyos.net {
         }
     }
+    router-advert {
+        interface eth3 {
+            default-preference "medium"
+            prefix fd07:1:1:1::/64 {
+            }
+        }
+    }
     ssh {
         disable-password-authentication
     }
@@ -70,7 +110,8 @@ system {
             speed "115200"
         }
     }
-    host-name "vyos"
+    domain-name "kyber.sk07.lrk"
+    host-name "rtr-kyber"
     login {
         user vyos {
             authentication {
@@ -79,6 +120,8 @@ system {
             }
         }
     }
+    name-server "1.1.1.1"
+    name-server "8.8.8.8"
     syslog {
         global {
             facility all {
