@@ -20,7 +20,7 @@ This document is the canonical, consolidated task list for the project. It merge
 |---|---|
 | Company name | `kyber` |
 | Group | `sk07` (group number 7) |
-| Internal DNS domain | `kyber.local` (or `kyber.sk07.lab` — pick one and use it everywhere; document the choice) |
+| Internal DNS domain | `kyber.local` |
 
 ### 0.2 IPv4 Address Plan
 
@@ -109,7 +109,7 @@ These tasks must be completed before either workstream can proceed independently
 
 - [ ] **B3** Set system-level parameters on VyOS:
   - `system host-name kyber-rtr-01`
-  - `system domain-name` → your chosen domain (e.g. `kyber.local`)
+  - `system domain-name kyber.local`
   - Timezone: `Europe/Ljubljana`
   - NTP servers: e.g. `0.si.pool.ntp.org`, `1.si.pool.ntp.org`, or `ntp.arnes.si`
   - Create an admin user with SSH public-key authentication
