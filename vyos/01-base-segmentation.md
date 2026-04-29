@@ -2,8 +2,7 @@
 set system host-name 'kyber-rtr-01'
 set system domain-name 'kyber.local'
 
-# Temporary public resolvers until we stand up our own DNS.
-# We'll replace these in the DNS phase.
+# Temporary public resolvers until replaced in the DNS phase
 set system name-server '1.1.1.1'
 set system name-server '8.8.8.8'
 
