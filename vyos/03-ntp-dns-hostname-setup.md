@@ -20,7 +20,7 @@
 - `set service dns forwarding name-server '2606:4700:4700::1111'`
 - `set service dns forwarding name-server '2606:4700:4700::1001'`
 - `set service dns forwarding domain kyber.local name-server '192.168.7.10'`
-- `set service dns forwarding domain kyber.local name-server '2001:1470:fffd:9a::10'`
+- `set service dns forwarding domain kyber.local name-server '2001:1470:fffd:99::10'`
 - `set service dns forwarding domain kyber.local addnta`
 - `set service dns forwarding domain kyber.local recursion-desired`
 - `set service dns forwarding domain 7.168.192.in-addr.arpa name-server '192.168.7.10'`
