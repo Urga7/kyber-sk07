@@ -4,6 +4,7 @@
 - `delete service ntp server time2.vyos.net`
 - `delete service ntp server time3.vyos.net` 
 - `set service ntp server ntp1.arnes.si`
+- `set service ntp server ntp2.arnes.si`
 - `set service ntp server 1.si.pool.ntp.org`
 - `set service ntp server 1.europe.pool.ntp.org`
 - `set service ntp allow-client address '2001:1470:fffd:99::/64'`
