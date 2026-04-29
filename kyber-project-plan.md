@@ -130,12 +130,12 @@ These tasks must be completed before either workstream can proceed independently
   - `ping6 2001:4860:4860::8888` ✓
 
 - [ ] **B6** Decide and document technology choices in `/README.md`:
-  - REST framework (e.g. Python/FastAPI, Node.js/Express, Java/Spring)
-  - Database (e.g. PostgreSQL, MySQL, MongoDB)
-  - LDAP solution (FreeIPA or OpenLDAP)
-  - VPN solution (WireGuard on VyOS, or OpenVPN on a separate VM — note that WireGuard is key-based so LDAP password auth requires scripting or switching to OpenVPN)
-  - Monitoring stack (Prometheus + Grafana recommended)
-  - IDS/IPS if doing the optional part (e.g. Suricata, Snort)
+  - REST framework: Python/FastAPI
+  - Database: PostgreSQL
+  - LDAP solution: FreeIPA
+  - VPN solution: WireGuard
+  - Monitoring stack: Prometheus + Grafana
+  - IDS/IPS if doing the optional part: Suricata
 
 - [ ] **B7** Create the remaining VMs as bare OS installs, attached to the correct port groups. Give them temporary static IPs (no services yet) so both teammates can SSH in.
 
