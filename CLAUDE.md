@@ -18,7 +18,7 @@ There is no application source code to build, lint, or test. The repo contains:
 - `kyber-project-plan.md` — Single source of truth for all tasks, IP plans, VM inventory, and acceptance criteria. Reference this before any work.
 - `vyos/` — Numbered markdown runbooks (`01-…`, `02-…`, `03-…`) documenting VyOS configuration changes in order. Each file contains raw VyOS `set` commands to be pasted into configure mode.
 - `vyos/snapshots/` — Timestamped `config.boot` exports (e.g. `config-20260429-1800.boot`). A new snapshot must be saved after every meaningful VyOS change.
-- `ipv6-ubuntu/` — Host-side setup guides for Ubuntu VMs (e.g. Netplan SLAAC config).
+- `ipv6/` — Host-side setup guides for Ubuntu VM in the IPv6 subnetwork (e.g. Netplan SLAAC config).
 - `kyber-network-topology.svg` — Network diagram.
 
 ## Key Network Constants

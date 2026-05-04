@@ -65,37 +65,12 @@ Group services sensibly — don't create a separate VM for each feature, but don
 | `kyber-app-01` | Ubuntu Server LTS | sk07-dmz | nginx (TLS, HTTP/2), REST API instance 1, PostgreSQL primary, etcd node 1, internal authoritative DNS (BIND9 or similar) |
 | `kyber-app-02` | Ubuntu Server LTS | sk07-dmz | nginx (TLS, HTTP/2), REST API instance 2, PostgreSQL replica, etcd node 2 |
 | `kyber-mon-01` | Ubuntu Server LTS | sk07-dmz | Prometheus, Grafana, snmp_exporter, node_exporter, etcd node 3, *(opt)* ntopng, *(opt)* Suricata |
-| `kyber-ldap-01` | Ubuntu Server LTS | sk07-dmz (or sk07-internal) | FreeIPA or OpenLDAP — the on-prem user directory |
+| `kyber-ldap-01` | Ubuntu Server LTS | sk07-dmz (or sk07-internal) | FreeIPA — the on-prem user directory |
 | `kyber-ws-lin` | Ubuntu Desktop (or similar) | sk07-internal | End-user Linux client (heterogeneous OS requirement) |
 | `kyber-ws-win` | Windows 10/11 | sk07-internal | End-user Windows client (heterogeneous OS requirement) |
 | `kyber-v6host` | Ubuntu Server LTS (minimal) | sk07-ipv6only | Demonstrates the IPv6-only + NPTv6 segment |
 
 > **Note:** If resources are tight, you can merge `kyber-ldap-01` into `kyber-app-01`, but FreeIPA generally prefers its own host. The 3 etcd nodes across app-01, app-02, and mon-01 are the minimum for RAFT (≥3 required). The two client workstations (`kyber-ws-lin` and `kyber-ws-win`) satisfy the optional heterogeneous OS requirement.
-
-### 0.6 GitHub Repo Layout
-
-```
-/README.md                  ← Project overview + §0 constants
-/network/
-   README.md                ← Topology, diagrams, VyOS rationale
-   firewall-policy.md       ← Firewall rule matrix + rationale
-   diagrams/                ← drawio/excalidraw sources + PNG exports
-/snapshots/
-   0000-baseline-config.boot
-   0001-<topic>-config.boot
-   ...
-/services/
-   rest-api/README.md
-   ldap/README.md
-   monitoring/README.md
-   etcd/README.md
-   dns/README.md
-   vpn/README.md
-   ipv6/README.md
-/report/
-   kyber-report.md
-   kyber-report.pdf
-```
 
 ---
 
@@ -138,8 +113,6 @@ These tasks must be completed before either workstream can proceed independently
   - IDS/IPS if doing the optional part: Suricata
 
 - [ ] **B7** Create the remaining VMs as bare OS installs, attached to the correct port groups. Give them temporary static IPs (no services yet) so both teammates can SSH in.
-
-- [ ] **B8** Commit `/snapshots/0001-after-bootstrap-config.boot`.
 
 > ✅ **Gate:** When B1–B8 are green, split into Track N and Track S.
 
