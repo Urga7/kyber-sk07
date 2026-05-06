@@ -1,5 +1,5 @@
 ```
-set system host-name 'kyber-rtr-01'
+set system host-name 'kyber-rtr'
 set system domain-name 'kyber.local'
 ```
 

@@ -1,5 +1,8 @@
 # Configuration during OS installation
 
+OS: Ubuntu 22.04.5 LTS
+MAC Address: 00:0c:29:82:fb:06
+
 ens160 interface:
 - IPv4 method: Manual
     - Subnet: 192.168.7.0/24
