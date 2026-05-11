@@ -10,3 +10,9 @@ ens160 interface:
     - Gateway: 192.168.7.1
     - Name servers: 1.1.1.1
 - IPv6 method: Disabled for now
+
+```
+sudo apt update
+sudo apt full-upgrade
+sudo reboot
+```
