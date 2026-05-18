@@ -33,7 +33,7 @@
 - `configure`
 - `set service dhcpv6-server shared-network-name DMZ6 subnet 2001:1470:fffd:99::/64 name-server '2001:1470:fffd:99::1'`
 - `set service dhcpv6-server shared-network-name DMZ6 subnet 2001:1470:fffd:99::/64 domain-search 'kyber.local'`
-- `set service dhcpv6-server shared-network-name DMZ6 subnet 2001:1470:fffd:99::/64 static-mapping ldap ipv6-address '2001:1470:fffd:99::10'`
+- `set service dhcpv6-server shared-network-name DMZ6 subnet 2001:1470:fffd:99::/64 static-mapping ldap ipv6-address '2001:1470:fffd:99::30'`
 - `set service dhcpv6-server shared-network-name DMZ6 subnet 2001:1470:fffd:99::/64 static-mapping ldap identifier '00:03:00:01:00:0C:29:82:FB:06'`
 - `set service router-advert interface eth2 managed-flag`
 - `set service router-advert interface eth2 other-config-flag`
