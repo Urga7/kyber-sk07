@@ -1,5 +1,10 @@
-sudo apt -y install openssh-server
-sudo systemctl enable --now ssh
+```
+sudo dnf -y install openssh-server
+sudo systemctl enable --now sshd
+```
+
+firewalld permits the `ssh` service in the default zone out of the box, so no
+firewall change is needed for this step.
 
 From local machine:
 ```
