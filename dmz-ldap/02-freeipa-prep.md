@@ -44,44 +44,21 @@ Must match the rest of the network.
 sudo timedatectl set-timezone Europe/Ljubljana
 ```
 
----
-========== CHECKPOINT - Done up to here =====================
----
-
 Point chrony at the VyOS NTP relay (configured in
 `vyos/03-ntp-dns-hostname-setup.md`):
 
 ```
 sudo apt -y install chrony
+```
+
+Deletes every line in the config starting with pool  or server . This strips the default Ubuntu public NTP pools (e.g. pool ntp.ubuntu.com) so
+the VM won't reach out to internet time servers — the DMZ should get time only from the internal source.
+
+```
 sudo sed -i '/^pool /d;/^server /d' /etc/chrony/chrony.conf
+```
+
+```
 echo "server 192.168.7.1 iburst" | sudo tee -a /etc/chrony/chrony.conf
 sudo systemctl restart chrony
-chronyc sources    # 192.168.7.1 should appear as a candidate
 ```
-
-> **Router prerequisite (run on `kyber-rtr-01`, not the VM).** VyOS's
-> `ntp allow-client` in `vyos/03-ntp-dns-hostname-setup.md` only lists the IPv6
-> DMZ/internal prefixes, so NTP from 192.168.7.30 is currently blocked. Add the
-> IPv4 prefixes, then snapshot per the working agreement:
->
-> ```
-> configure
-> set service ntp allow-client address '192.168.7.0/24'
-> set service ntp allow-client address '10.7.0.0/24'
-> commit ; save ; exit
-> ```
->
-> Fold this edit back into `vyos/03-ntp-dns-hostname-setup.md` and save a fresh
-> `vyos/snapshots/config-YYYYMMDD-HHMM.boot`.
-
-## 3. Sanity check
-
-```
-ping -c2 192.168.7.1                   # gateway
-ping -c2 1.1.1.1                       # WAN
-getent hosts kyber-ldap.kyber.local   # must return 192.168.7.30
-```
-
-When all three pass, proceed to FreeIPA install (next runbook:
-`03-freeipa-install.md`, capturing the exact `ipa-server-install` command and
-post-install steps from `ldap-setup.txt`).
