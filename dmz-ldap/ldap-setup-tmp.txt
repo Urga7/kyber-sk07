@@ -1,0 +1,174 @@
+Things to flag
+
+  1. Static IP vs DHCP reservation. §0.2 and N3.2 say DMZ servers must get fixed IPs via DHCP static reservation, not manual config on the host. You don't have DHCPv4 on VyOS yet (no runbook for it in vyos/), so manual is fine for now — but plan to revert this to DHCP once N3.2
+  is done. Make a note of the VM's MAC now so you can wire up the reservation later.
+  2. DNS is 1.1.1.1. Acceptable during install (you'll add 127.0.0.1 to /etc/hosts so the host can resolve its own FQDN before ipa-server-install runs). FreeIPA will rewrite /etc/resolv.conf to 127.0.0.1 after install.
+  3. IPv6 disabled. OK to keep off until you have DHCPv6 (per N3.4) on the DMZ. Eventually the DMZ FreeIPA host should get 2001:1470:fffd:99::30 and an AAAA record, because S3.9 requires services over v6.
+  4. VM name vs project plan. ESXi name is sk07-ldap, but the canonical plan name is kyber-ldap. Pick one and stick with it — I'd suggest using kyber-ldap.kyber.local as the OS hostname (it's what kyber-project-plan.md and the existing VyOS snapshots assume) even if the
+   ESXi label stays sk07-ldap. Calling that out so the FQDN you use in FreeIPA is intentional.
+  5. Where does internal DNS live? Your VyOS forwarder (vyos/03-…md lines 22–27) sends kyber.local to 192.168.7.10 — but FreeIPA will run BIND9 on .30. You have two reasonable choices:
+    - (Recommended) Use FreeIPA's integrated DNS as the internal authoritative DNS, and update the VyOS forwarder to point at 192.168.7.30. Folds S2 into S1, gives you free SRV records for Kerberos/LDAP discovery.
+    - Run a separate BIND9 on kyber-app-01 at .10 per the original plan, install FreeIPA without --setup-dns, and manually replicate SRV records there.
+
+  The rest of these instructions assume the recommended path (FreeIPA owns DNS).
+
+  ---
+  Pre-install — on the LDAP VM
+
+  Run these in order. Replace kyber-ldap with whatever hostname you commit to.
+
+  # 1. Patch
+  sudo apt update && sudo apt -y full-upgrade && sudo reboot
+
+  # 2. After reboot — set FQDN hostname (must match what you'll use in FreeIPA)
+  sudo hostnamectl set-hostname kyber-ldap.kyber.local
+  hostname -f   # must print kyber-ldap.kyber.local
+
+  Edit /etc/hosts so the FQDN resolves locally before FreeIPA's installer runs:
+
+  127.0.0.1       localhost
+  192.168.7.30    kyber-ldap.kyber.local kyber-ldap
+
+  Remove any 127.0.1.1   kyber-ldap line that the Ubuntu installer left behind — FreeIPA will refuse to install if the FQDN resolves to a loopback.
+
+  # 3. Timezone + clock — must match the rest of the network
+  sudo timedatectl set-timezone Europe/Ljubljana
+
+  # Point chrony at the VyOS NTP relay (configured in vyos/03-…md)
+  sudo apt -y install chrony
+  sudo sed -i '/^pool /d;/^server /d' /etc/chrony/chrony.conf
+  echo "server 192.168.7.1 iburst" | sudo tee -a /etc/chrony/chrony.conf
+  sudo systemctl restart chrony
+  chronyc sources    # should show 192.168.7.1 as a candidate
+
+  Note: VyOS's allow-client in 03-ntp-dns-hostname-setup.md only lists the IPv6 DMZ/internal prefixes — NTP from 192.168.7.30 will currently be blocked. Add this on the router before continuing:
+
+  configure
+  set service ntp allow-client address '192.168.7.0/24'
+  set service ntp allow-client address '10.7.0.0/24'
+  commit ; save ; exit
+
+  (and snapshot config.boot per the working agreement).
+
+  # 4. Sanity check
+  ping -c2 192.168.7.1            # gateway
+  ping -c2 1.1.1.1                # WAN
+  getent hosts kyber-ldap.kyber.local   # must return 192.168.7.30
+
+  ---
+  Install FreeIPA
+
+  sudo add-apt-repository -y universe
+  sudo apt -y install freeipa-server freeipa-server-dns
+
+  During the package config prompts:
+  - Kerberos realm: KYBER.LOCAL (uppercase)
+  - Kerberos servers / admin server: leave blank — ipa-server-install will set them.
+
+  Then run the installer interactively (recommended the first time so you can see the prompts):
+
+  sudo ipa-server-install \
+    --realm=KYBER.LOCAL \
+    --domain=kyber.local \
+    --hostname=kyber-ldap.kyber.local \
+    --ip-address=192.168.7.30 \
+    --setup-dns \
+    --auto-forwarders \
+    --no-reverse \
+    --no-ntp
+
+  Flag rationale:
+  - --setup-dns — turn on integrated BIND9 (the "FreeIPA owns DNS" path).
+  - --auto-forwarders — uses what's in /etc/resolv.conf (i.e. 1.1.1.1) as upstream forwarder. If you'd rather forward through VyOS for split-horizon consistency, replace with --forwarder=192.168.7.1.
+  - --no-reverse — skip auto-creating the reverse zone now; you'll add 7.168.192.in-addr.arpa explicitly after install (it's already referenced in your VyOS forwarder config).
+  - --no-ntp — don't let FreeIPA touch chrony; you've already pointed it at VyOS.
+
+  You'll be prompted for a Directory Manager password (≥ 8 chars; this is a low-level LDAP root) and an admin password (the IPA admin user). Save both in your password manager.
+
+  The installer takes 10–20 minutes. When it finishes successfully you should see something like "The ipa-server-install command was successful".
+
+  ---
+  Post-install — base setup
+
+  # 1. Authenticate as admin
+  kinit admin
+  klist                            # should show TGT for admin@KYBER.LOCAL
+
+  # 2. Service status
+  sudo ipactl status               # all services should be RUNNING
+
+  # 3. Add the reverse zone (matches what VyOS forwards)
+  ipa dnszone-add 7.168.192.in-addr.arpa. --name-from-ip=192.168.7.0/24
+  ipa dnsrecord-add 7.168.192.in-addr.arpa. 30 --ptr-rec=kyber-ldap.kyber.local.
+
+  # 4. Pre-register the other DMZ hosts so DNS resolves while you build them
+  #    (matches the IPs from N3.2)
+  ipa dnsrecord-add kyber.local kyber-app-01 --a-rec=192.168.7.10
+  ipa dnsrecord-add kyber.local kyber-app-02 --a-rec=192.168.7.11
+  ipa dnsrecord-add kyber.local kyber-mon-01 --a-rec=192.168.7.20
+
+  # 5. Groups (S1.3)
+  ipa group-add admins-grp --desc="Network admins"   # 'admins' already exists in IPA
+  ipa group-add vpn-users  --desc="Allowed to connect via VPN"
+  ipa group-add api-writers --desc="Can call REST API write endpoints"
+
+  # 6. Test users (S1.4)
+  ipa user-add alice --first=Alice --last=Anderson --random
+  ipa user-add bob   --first=Bob   --last=Brown    --random
+  ipa user-add carol --first=Carol --last=Carter   --random
+  ipa user-add dave  --first=Dave  --last=Davis    --random
+  # Note the --random temp passwords printed. Each user must change pw on first kinit.
+
+  ipa group-add-member admins      --users=alice
+  ipa group-add-member vpn-users   --users=alice,bob
+  ipa group-add-member api-writers --users=carol
+  ipa group-add-member ipausers    --users=dave   # default group
+
+  # 7. Export the CA cert for the rest of the project (S1.5)
+  sudo cp /etc/ipa/ca.crt /tmp/kyber-ipa-ca.crt
+
+  ---
+  Test plan
+
+  Run these from the LDAP VM unless noted. Each maps to an acceptance criterion in the plan.
+
+  1. Local Kerberos + LDAP (S1.6)
+  kdestroy
+  kinit alice                                    # prompted to change temp pw on first login
+  klist                                          # ticket for alice@KYBER.LOCAL
+  ldapsearch -Y GSSAPI -b "dc=kyber,dc=local" \
+     "(uid=alice)" memberOf
+  # should return cn=admins,cn=groups,cn=accounts,dc=kyber,dc=local etc.
+
+  2. Anonymous LDAP bind
+  ldapsearch -x -H ldap://kyber-ldap.kyber.local \
+    -b "cn=users,cn=accounts,dc=kyber,dc=local" "(uid=bob)" uid mail
+
+  3. SRV records (proves integrated DNS is healthy)
+  dig @127.0.0.1 _kerberos._tcp.kyber.local SRV +short
+  dig @127.0.0.1 _ldap._tcp.kyber.local      SRV +short
+  # both should resolve to kyber-ldap.kyber.local
+
+  4. Web UI
+  - From kyber-ws-lin once it exists, browse https://kyber-ldap.kyber.local/ipa/ui/
+  - Trust /tmp/kyber-ipa-ca.crt first or your browser will warn.
+
+  5. From another DMZ host (e.g. once kyber-app-01 is up)
+  ldapsearch -x -H ldap://192.168.7.30 \
+    -b "dc=kyber,dc=local" -s base
+  Failure here points at firewall (you don't have N6 yet, so it should pass) or DNS (resolver still pointing at VyOS forwarder that hasn't been updated to .30).
+
+  ---
+  Follow-ups to fold back into the plan
+
+  A few items will need a small change in another runbook later — capturing them so they don't get lost:
+
+  - vyos/03-ntp-dns-hostname-setup.md — change 192.168.7.10 → 192.168.7.30 (and same for the v6 entry once IPv6 is enabled on the LDAP VM) so the VyOS forwarder hands kyber.local to FreeIPA's BIND. Or keep both as a tiny resilience win.
+  - vyos/03-…md — add the missing set service ntp allow-client address '192.168.7.0/24' (and 10.7.0.0/24) so DMZ/internal IPv4 clients can hit the NTP relay.
+  - N3.2 DHCP runbook (when you write it) — add a static reservation for the LDAP VM's MAC → 192.168.7.30, then remove the manual netplan config on the LDAP host so it gets the same IP via DHCP per the plan's "DHCP for servers" rule.
+  - N3.4 / DHCPv6 — once stateful DHCPv6 is up on the DMZ, enable IPv6 on this VM, reserve 2001:1470:fffd:99::30, register an AAAA record in IPA, and configure FreeIPA to listen on v6 (ipa-server-install already binds to v6 if it's present at install time — adding it later is
+  doable but messier; you may prefer to redo the install once IPv6 is ready).
+  - New runbook dmz-ldap/01-freeipa-install.md — capture the install command + post-install commands you actually ran, so the report (§4 #9) writes itself.
+  - Snapshot — after the VyOS NTP allow-client and DNS-target edits, save a fresh config-YYYYMMDD-HHMM.boot per the working agreement.
+
+※ recap: You're setting up FreeIPA on the new sk07-dmz-ldap VM (192.168.7.30) for the kyber project's user directory. Next action: on the VM, set the FQDN hostname to kyber-ldap.kyber.local and fix /etc/hosts before running ipa-server-install. (disable recaps in /config)
