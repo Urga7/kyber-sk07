@@ -59,15 +59,15 @@ The assigned block is `2001:1470:fffd:98::/62`, which splits into exactly 4× /6
 
 Group services sensibly — don't create a separate VM for each feature, but don't overload one VM either. The following is a recommended layout:
 
-| VM name              | OS | Segment (port group) | Roles |
-|----------------------|---|---|---|
-| `sk07-rtr` | VyOS 1.4.4 | all 4 NICs | Router, firewall, NAT, NPTv6, DHCP/DHCPv6, DNS forwarder, NTP relay, VPN endpoint, SNMP agent |
-| `sk07-app-01`        | Ubuntu Server LTS | sk07-dmz | nginx (TLS, HTTP/2), REST API instance 1, PostgreSQL primary, etcd node 1, internal authoritative DNS (BIND9 or similar) |
-| `sk07-app-02`        | Ubuntu Server LTS | sk07-dmz | nginx (TLS, HTTP/2), REST API instance 2, PostgreSQL replica, etcd node 2 |
-| `sk07-mon-01`        | Ubuntu Server LTS | sk07-dmz | Prometheus, Grafana, snmp_exporter, node_exporter, etcd node 3, *(opt)* ntopng, *(opt)* Suricata |
-| `sk07-ldap`          | Ubuntu Server LTS | sk07-dmz (or sk07-internal) | FreeIPA — the on-prem user directory |
+| VM name              | OS                          | Segment (port group) | Roles |
+|----------------------|-----------------------------|---|---|
+| `sk07-rtr` | VyOS 1.4.4                  | all 4 NICs | Router, firewall, NAT, NPTv6, DHCP/DHCPv6, DNS forwarder, NTP relay, VPN endpoint, SNMP agent |
+| `sk07-app-01`        | Ubuntu Server LTS           | sk07-dmz | nginx (TLS, HTTP/2), REST API instance 1, PostgreSQL primary, etcd node 1 |
+| `sk07-app-02`        | Ubuntu Server LTS           | sk07-dmz | nginx (TLS, HTTP/2), REST API instance 2, PostgreSQL replica, etcd node 2 |
+| `sk07-mon-01`        | Ubuntu Server LTS           | sk07-dmz | Prometheus, Grafana, snmp_exporter, node_exporter, etcd node 3, *(opt)* ntopng, *(opt)* Suricata |
+| `sk07-ldap`          | Alma Linux 10.1             | sk07-dmz (or sk07-internal) | FreeIPA — the on-prem user directory; internal authoritative DNS for `kyber.local` (FreeIPA-integrated BIND) |
 | `sk07-ws-01` | Ubuntu Desktop (or similar) | sk07-internal | End-user Linux client (heterogeneous OS requirement) |
-| `sk07-ws-02` | Windows 10/11 | sk07-internal | End-user Windows client (heterogeneous OS requirement) |
+| `sk07-ws-02` | Windows 10/11               | sk07-internal | End-user Windows client (heterogeneous OS requirement) |
 | `sk07-ipv6`          | Ubuntu Server LTS (minimal) | sk07-ipv6only | Demonstrates the IPv6-only + NPTv6 segment |
 
 ---
@@ -143,7 +143,7 @@ Person A and Person B work independently. The only synchronization points are: (
 
 #### N4. DNS Forwarding + Split DNS (VyOS side)
 - [ ] N4.1 Configure DNS forwarding on VyOS: listen on `10.7.0.1` and `192.168.7.1`, forward general queries to public upstream resolvers (e.g. `1.1.1.1`, `8.8.8.8`, `2001:4860:4860::8888`).
-- [ ] N4.2 For the internal domain zone (e.g. `kyber.local`): forward queries to the internal authoritative DNS server (set up by Person B in S2) so that internal clients resolve internal hostnames to private IPs.
+- [ ] N4.2 For the internal domain zone (`kyber.local`): forward queries to the FreeIPA DNS on `sk07-ldap` — **192.168.7.30** and **2001:1470:fffd:99::30** (S2) — so that internal clients resolve internal hostnames to private IPs.
 - [ ] N4.3 **Split-DNS effect:** When an internal client queries `api.kyber.local`, it gets the private DMZ address (e.g. `192.168.7.10`). When an external client queries the same name (if public DNS is configured), it gets the public IP `88.200.24.237`. This satisfies the original brief's split-DNS requirement.
 - [ ] N4.4 **Acceptance:** From `sk07-ws-01`, `dig api.kyber.local` returns the private IP. From an external host (or over VPN with appropriate DNS), the resolution returns `88.200.24.237` (or fails gracefully if no public DNS is set up).
 
@@ -225,11 +225,11 @@ The original brief says: "Set up an on-prem user directory. Can be AD (Microsoft
 
 The original brief requires split DNS: an internal DNS server that returns private IPs for internal names, while external queries (if public DNS is configured) return the public IP.
 
-- [ ] S2.1 Deploy a DNS server (BIND9 or Unbound) — can run on `sk07-app-01` or a dedicated VM.
-- [ ] S2.2 Configure it as the authoritative nameserver for the internal domain (e.g. `kyber.local`).
-- [ ] S2.3 Register A and AAAA records for every server in the DMZ (REST API, LDAP, monitoring, etc.) pointing to their private IPs.
-- [ ] S2.4 Coordinate with Person A: VyOS DNS forwarding (N4.2) will forward internal domain queries to this server.
-- [ ] S2.5 **(optional)** Configure an "external" view that returns the public IP `88.200.24.237` for the same hostnames, to fully implement split DNS for external clients.
+- [ ] S2.1 The internal authoritative DNS runs as **FreeIPA-integrated BIND on `sk07-ldap` (192.168.7.30 / 2001:1470:fffd:99::30)**, stood up by `ipa-server-install --setup-dns` (see `dmz-ldap/04-freeipa-install.md`). No separate BIND9/Unbound VM. *(Decision 2026-05-18: FreeIPA-owned DNS chosen over a standalone resolver on app-01 — standard FreeIPA pattern, keeps SRV/DNSSEC records managed automatically.)*
+- [ ] S2.2 `--setup-dns` already makes it authoritative for `kyber.local` (zone + IPA SRV records created automatically) — no manual zone bootstrap.
+- [ ] S2.3 Register A and AAAA records for every server in the DMZ (REST API, monitoring, etc.) pointing to their private IPs, via `ipa dnsrecord-add` (or the IPA Web UI).
+- [ ] S2.4 Coordinate with Person A: VyOS DNS forwarding (N4.2) forwards `kyber.local` queries to **192.168.7.30 / 2001:1470:fffd:99::30**.
+- [ ] S2.5 **(optional)** Split-DNS external side: FreeIPA's `bind-dyndb-ldap` backend does **not** support BIND views, so the "external" answer (`88.200.24.237`) cannot be a second view on this server — implement it at the VyOS forwarder / public-DNS layer instead (see N4.3).
 - [ ] S2.6 **Acceptance:** From an internal client, `dig api.kyber.local` returns the private DMZ IP.
 - [ ] S2.7 Document the zone file and records in `/services/dns/README.md`.
 

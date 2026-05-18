@@ -6,9 +6,6 @@
 sudo dnf -y install ipa-server ipa-server-dns ipa-healthcheck
 ```
 
-There are no debconf-style realm/admin-server prompts here (that was Debian's
-`freeipa-server`); the realm is set entirely by `ipa-server-install`.
-
 ## 2. Run the installer
 
 Interactive the first time so the prompts are visible:
@@ -26,9 +23,16 @@ sudo ipa-server-install \
 ```
 
 Flag rationale:
-- `--setup-dns` — turn on integrated BIND9.
-- `--auto-forwarders` — uses `/etc/resolv.conf` (1.1.1.1) as upstream forwarder.
-  Use `--forwarder=192.168.7.1` instead if you want split-horizon via VyOS.
+- `--setup-dns` — turn on FreeIPA-integrated BIND. **This box becomes the
+  authoritative DNS for `kyber.local`** (project decision 2026-05-18; the
+  standalone-BIND9-on-app-01 idea in plan S2 is dropped). VyOS N4.2 forwards
+  the `kyber.local` zone here — `192.168.7.30` / `2001:1470:fffd:99::30`.
+- `--auto-forwarders` — reads `/etc/resolv.conf`; here that is **both**
+  `1.1.1.1` and `2001:1470:fffd:99::1` (already dual-stack via N3.4), used as
+  upstream forwarders for everything *outside* `kyber.local`. To send external
+  resolution through VyOS instead (consistent with the plan's designated
+  forwarder, `kyber-project-plan.md` N4.1), drop this flag and pass
+  `--forwarder=192.168.7.1 --forwarder=2001:1470:fffd:99::1`.
 - `--no-reverse` — skip auto reverse zone; `7.168.192.in-addr.arpa` is added
   explicitly post-install (it's already referenced in the VyOS forwarder).
 - `--no-ntp` — leave chrony alone; it was pointed at VyOS in `02`.
