@@ -12,14 +12,15 @@ Interactive the first time so the prompts are visible:
 
 ```
 sudo ipa-server-install \
-  --realm=KYBER.LOCAL \
-  --domain=kyber.local \
-  --hostname=kyber-ldap.kyber.local \
-  --ip-address=192.168.7.30 \
-  --setup-dns \
-  --auto-forwarders \
-  --no-reverse \
-  --no-ntp
+    --realm=KYBER.LOCAL \
+    --domain=kyber.local \
+    --hostname=kyber-ldap.kyber.local \
+    --ip-address=192.168.7.30 \
+    --ip-address=2001:1470:fffd:99::30 \
+    --setup-dns \
+    --auto-forwarders \
+    --no-reverse \
+    --no-ntp
 ```
 
 Flag rationale:
@@ -37,14 +38,16 @@ Flag rationale:
   explicitly post-install (it's already referenced in the VyOS forwarder).
 - `--no-ntp` — leave chrony alone; it was pointed at VyOS in `02`.
 
-You will be prompted for a **Directory Manager** password (≥ 8 chars; low-level
-LDAP root) and an **admin** password (the IPA `admin` user). Store both in a
-password manager.
+## 3. Clean up the healthcheck warning (one-time)
 
-The installer takes 10–20 min. Success ends with
-`The ipa-server-install command was successful`.
+The fresh install leaves `CS.cfg` mode at `0664`; `ipa-healthcheck` flags it.
+Harmless on a single-host CA, but tighten it so `--failures-only` is empty:
 
-## 3. Verify
+```
+sudo chmod 0660 /var/lib/pki/pki-tomcat/conf/ca/CS.cfg
+```
+
+## 4. Verify
 
 ```
 kinit admin                           # then klist -> TGT for admin@KYBER.LOCAL
@@ -55,7 +58,3 @@ dig @127.0.0.1 _ldap._tcp.kyber.local SRV +short   # -> kyber-ldap.kyber.local
 
 Immediately back up `/root/cacert.p12` somewhere safe — it holds the IPA CA
 private key and is required to stand up a replica later.
-
-Post-install object setup (reverse zone, DMZ host A-records, groups, test
-users, CA-cert export) and the full test plan are tracked in `ldap-setup.txt`
-and become the next runbook once executed.
