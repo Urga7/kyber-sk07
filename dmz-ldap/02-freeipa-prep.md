@@ -83,7 +83,7 @@ chronyc sources    # 192.168.7.1 should appear as a candidate
 > Fold this edit back into `vyos/03-ntp-dns-hostname-setup.md` and save a fresh
 > `vyos/snapshots/config-YYYYMMDD-HHMM.boot`.
 
-## 3. SELinux + firewall (RHEL-specific — did not apply on Ubuntu)
+## 3. SELinux + firewall (RHEL-specific)
 
 Leave **SELinux enforcing**. FreeIPA is developed and tested against enforcing
 mode — do not disable it.
@@ -97,6 +97,8 @@ AlmaLinux runs **firewalld** by default, and unlike Ubuntu's (off-by-default) uf
 FreeIPA ports now (integrated-DNS deployment, so port 53 included):
 
 ```
+
+sudo firewall-cmd --permanent --add-service=dns
 sudo firewall-cmd --permanent --add-port={80,443,389,636,88,464,53}/tcp
 sudo firewall-cmd --permanent --add-port={88,464,53}/udp
 sudo firewall-cmd --reload

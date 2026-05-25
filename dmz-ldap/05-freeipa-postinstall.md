@@ -97,9 +97,11 @@ dig @127.0.0.1 kyber-ldap.kyber.local AAAA +short   # -> 2001:1470:fffd:99::30
 dig @127.0.0.1 -x 192.168.7.30             +short   # -> kyber-ldap.kyber.local.
 ```
 
-## 7. Next
+## 7. Firewall for dns
 
-- Document the directory tree, user DNs, and groups in `services/ldap/README.md`
-  (plan **S1.7**) — fill in with the real DNs printed above.
-- Add AAAA records for app-01/app-02/mon-01 once their DHCPv6 reservations
-  (N3.4) are assigned.
+```
+sudo firewall-cmd --permanent --add-service=dns
+sudo firewall-cmd --permanent --add-port={80,443,389,636,88,464}/tcp
+sudo firewall-cmd --permanent --add-port={88,464}/udp
+sudo firewall-cmd --reload
+```

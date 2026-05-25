@@ -1,5 +1,4 @@
 ### NTP server
-- `configure`
 - `delete service ntp server time1.vyos.net`
 - `delete service ntp server time2.vyos.net`
 - `delete service ntp server time3.vyos.net` 
@@ -12,11 +11,8 @@
 - `set service ntp allow-client address '2001:1470:fffd:99::/64'`
 - `set service ntp allow-client address '2001:1470:fffd:9a::/64'`
 - `set system time-zone Europe/Ljubljana`
-- `commit`
-- `save`
 
 ### DNS split
-- `configure`
 - `set service dns forwarding name-server '1.1.1.1'`
 - `set service dns forwarding name-server '1.0.0.1'`
 - `set service dns forwarding name-server '2606:4700:4700::1111'`
@@ -26,6 +22,7 @@
 - `set service dns forwarding domain kyber.local addnta`
 - `set service dns forwarding domain kyber.local recursion-desired`
 - `set service dns forwarding domain 7.168.192.in-addr.arpa name-server '192.168.7.30'`
+- `delete service dns forwarding domain 0.7.10.in-addr.arpa`
 - `set service dns forwarding listen-address '10.7.0.1'`
 - `set service dns forwarding listen-address '192.168.7.1'`
 - `set service dns forwarding listen-address 'fd07:1:1:1::1'`
@@ -36,3 +33,4 @@
 - `set service dns forwarding allow-from 'fd07:1:1:1::/64'`
 - `set service dns forwarding allow-from '2001:1470:fffd:98::/62'`
 - `set service dns forwarding no-serve-rfc1918`
+- 
