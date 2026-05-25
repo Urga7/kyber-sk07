@@ -25,6 +25,34 @@ interfaces {
     loopback lo {
     }
 }
+nat {
+    source {
+        rule 100 {
+            description "Masquerade DMZ to WAN"
+            outbound-interface {
+                name "eth0"
+            }
+            source {
+                address "192.168.7.0/24"
+            }
+            translation {
+                address "masquerade"
+            }
+        }
+        rule 110 {
+            description "Masquerade Internal to WAN"
+            outbound-interface {
+                name "eth0"
+            }
+            source {
+                address "10.7.0.0/24"
+            }
+            translation {
+                address "masquerade"
+            }
+        }
+    }
+}
 nat66 {
     destination {
         rule 10 {
@@ -68,6 +96,52 @@ protocols {
     }
 }
 service {
+    dhcp-server {
+        shared-network-name DMZ {
+            subnet 192.168.7.0/24 {
+                default-router "192.168.7.1"
+                name-server "192.168.7.1"
+                static-mapping ldap {
+                    ip-address "192.168.7.30"
+                    mac-address "00:0C:29:82:FB:06"
+                }
+            }
+        }
+        shared-network-name INTERNAL {
+            subnet 10.7.0.0/24 {
+                default-router "10.7.0.1"
+                domain-name "kyber.local"
+                name-server "10.7.0.1"
+                range 0 {
+                    start "10.7.0.100"
+                    stop "10.7.0.200"
+                }
+            }
+        }
+    }
+    dhcpv6-server {
+        shared-network-name DMZ6 {
+            subnet 2001:1470:fffd:99::/64 {
+                domain-search "kyber.local"
+                name-server "2001:1470:fffd:99::1"
+                static-mapping ldap {
+                    identifier "00:03:00:01:00:0C:29:82:FB:06"
+                    ipv6-address "2001:1470:fffd:99::30"
+                }
+            }
+        }
+        shared-network-name INTERNAL6 {
+            subnet 2001:1470:fffd:9a::/64 {
+                address-range {
+                    start 2001:1470:fffd:9a::100 {
+                        stop "2001:1470:fffd:9a::1ff"
+                    }
+                }
+                domain-search "kyber.local"
+                name-server "2001:1470:fffd:9a::1"
+            }
+        }
+    }
     dns {
         forwarding {
             allow-from "10.7.0.0/24"
@@ -79,14 +153,14 @@ service {
                 }
             }
             domain 7.168.192.in-addr.arpa {
-                name-server 192.168.7.10 {
+                name-server 192.168.7.30 {
                 }
             }
             domain kyber.local {
                 addnta
-                name-server 192.168.7.10 {
+                name-server 192.168.7.30 {
                 }
-                name-server 2001:1470:fffd:99::10 {
+                name-server 2001:1470:fffd:99::30 {
                 }
                 recursion-desired
             }
@@ -118,6 +192,8 @@ service {
             address "fc00::/7"
             address "2001:1470:fffd:9a::/64"
             address "2001:1470:fffd:99::/64"
+            address "192.168.7.0/24"
+            address "10.7.0.0/24"
         }
         server 1.europe.pool.ntp.org {
         }
@@ -129,6 +205,20 @@ service {
         }
     }
     router-advert {
+        interface eth1 {
+            managed-flag
+            other-config-flag
+            prefix 2001:1470:fffd:9a::/64 {
+                no-autonomous-flag
+            }
+        }
+        interface eth2 {
+            managed-flag
+            other-config-flag
+            prefix 2001:1470:fffd:99::/64 {
+                no-autonomous-flag
+            }
+        }
         interface eth3 {
             default-preference "medium"
             prefix fd07:1:1:1::/64 {
@@ -160,7 +250,7 @@ system {
         }
     }
     domain-name "kyber.local"
-    host-name "kyber-rtr-01"
+    host-name "kyber-rtr"
     login {
         user vyos {
             authentication {
@@ -200,4 +290,3 @@ system {
 // Warning: Do not remove the following line.
 // vyos-config-version: "bgp@6:broadcast-relay@1:cluster@2:config-management@1:conntrack@6:conntrack-sync@2:container@2:dhcp-relay@2:dhcp-server@8:dhcpv6-server@1:dns-dynamic@4:dns-forwarding@4:firewall@15:flow-accounting@1:https@6:ids@1:interfaces@33:ipoe-server@3:ipsec@13:isis@3:l2tp@9:lldp@2:mdns@1:monitoring@1:nat@8:nat66@3:ntp@3:openconnect@3:ospf@2:pim@1:policy@8:pppoe-server@10:pptp@5:qos@2:quagga@11:reverse-proxy@1:rip@1:rpki@2:salt@1:snmp@3:ssh@2:sstp@6:system@27:vrf@3:vrrp@4:vyos-accel-ppp@2:wanloadbalance@3:webproxy@2"
 // Release version: 1.4.4
-

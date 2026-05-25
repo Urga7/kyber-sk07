@@ -76,18 +76,18 @@ Group services sensibly — don't create a separate VM for each feature, but don
 
 These tasks must be completed before either workstream can proceed independently. Do them together (screen-share or pair session).
 
-- [X] **B1** Create the GitHub repo with the layout from §0.6. Commit §0 into `/README.md`.
+- **B1** Create the GitHub repo with the layout from §0.6. Commit §0 into `/README.md`.
 
-- [X] **B2** SSH to the existing VyOS VM. Run `show configuration commands` and export `/config/config.boot` (via `scp`) into `/snapshots/0000-baseline-config.boot`.
+- **B2** SSH to the existing VyOS VM. Run `show configuration commands` and export `/config/config.boot` (via `scp`) into `/snapshots/0000-baseline-config.boot`.
 
-- [X] **B3** Set system-level parameters on VyOS:
+- **B3** Set system-level parameters on VyOS:
   - `system host-name kyber-rtr`
   - `system domain-name kyber.local`
   - Timezone: `Europe/Ljubljana`
   - NTP servers: e.g. `0.si.pool.ntp.org`, `1.si.pool.ntp.org`, or `ntp.arnes.si`
   - Create an admin user with SSH public-key authentication
 
-- [X] **B4** Configure all four interfaces with the IPv4 + IPv6 addresses from §0.2 and §0.3:
+- **B4** Configure all four interfaces with the IPv4 + IPv6 addresses from §0.2 and §0.3:
   - `eth0` → IPv4 `88.200.24.237/25`, IPv6 `2001:1470:fffd:98::2/64`
   - `eth1` → IPv4 `10.7.0.1/24`, IPv6 from the internal /64
   - `eth2` → IPv4 `192.168.7.1/24`, IPv6 from the DMZ /64
@@ -96,13 +96,13 @@ These tasks must be completed before either workstream can proceed independently
   - Enable IPv4 and IPv6 forwarding
   - **Do not configure firewall rules yet** (leave default-allow for now)
 
-- [X] **B5** Verify basic connectivity from the router:
+- **B5** Verify basic connectivity from the router:
   - `ping 8.8.8.8` ✓
   - `ping 88.200.24.129` ✓
   - `ping6 2001:1470:fffd:98::1` ✓
   - `ping6 2001:4860:4860::8888` ✓
 
-- [X] **B6** Decide and document technology choices in `/README.md`:
+- **B6** Decide and document technology choices in `/README.md`:
   - REST framework: Python/FastAPI
   - Database: PostgreSQL
   - LDAP solution: FreeIPA
@@ -110,7 +110,7 @@ These tasks must be completed before either workstream can proceed independently
   - Monitoring stack: Prometheus + Grafana
   - IDS/IPS if doing the optional part: Suricata
 
-- [ ] **B7** Create the remaining VMs as bare OS installs, attached to the correct port groups. Give them temporary static IPs (no services yet) so both teammates can SSH in.
+- **B7** Create the remaining VMs as bare OS installs, attached to the correct port groups. Give them temporary static IPs (no services yet) so both teammates can SSH in.
 
 > ✅ **Gate:** When B1–B8 are green, split into Track N and Track S.
 
@@ -125,31 +125,31 @@ Person A and Person B work independently. The only synchronization points are: (
 ### Track N — Networking (Person A) — owns `sk07-rtr`
 
 #### N1. NAT (source masquerade)
-- [ ] N1.1 Configure NAT44 source masquerade on `eth0` for outbound traffic from `10.7.0.0/24` and `192.168.7.0/24`.
-- [ ] N1.2 **Acceptance:** From a VM on the internal or DMZ segment, `curl ifconfig.me` returns `88.200.24.237`.
+- N1.1 Configure NAT44 source masquerade on `eth0` for outbound traffic from `10.7.0.0/24` and `192.168.7.0/24`.
+- N1.2 **Acceptance:** From a VM on the internal or DMZ segment, `curl ifconfig.me` returns `88.200.24.237`.
 
 #### N2. NPTv6 (IPv6-to-IPv6 Network Prefix Translation)
-- [ ] N2.1 Configure source NPTv6 rule translating inner ULA prefix (e.g. `fd07:7::/64`) → outer `2001:1470:fffd:9b::/64` on egress through `eth0`. VyOS uses `nat66` commands (supported in VyOS ≥1.2 per the original brief).
-- [ ] N2.2 Configure the corresponding destination NPTv6 rule for the reverse path (incoming `2001:1470:fffd:9b::/64` → inner ULA).
-- [ ] N2.3 **Acceptance:** From `kyber-v6host` (which has only a ULA address), `ping6 ipv6.google.com` works. Running `tcpdump -i eth0 ip6` on the router shows the source rewritten to `2001:1470:fffd:9b::…`.
+- N2.1 Configure source NPTv6 rule translating inner ULA prefix (e.g. `fd07:7::/64`) → outer `2001:1470:fffd:9b::/64` on egress through `eth0`. VyOS uses `nat66` commands (supported in VyOS ≥1.2 per the original brief).
+- N2.2 Configure the corresponding destination NPTv6 rule for the reverse path (incoming `2001:1470:fffd:9b::/64` → inner ULA).
+- N2.3 **Acceptance:** From `kyber-v6host` (which has only a ULA address), `ping6 ipv6.google.com` works. Running `tcpdump -i eth0 ip6` on the router shows the source rewritten to `2001:1470:fffd:9b::…`.
 
 #### N3. DHCP / DHCPv6 / SLAAC / Router Advertisements
-- [ ] N3.1 **DHCPv4 on eth1 (internal):** Pool e.g. `10.7.0.100`–`10.7.0.200`, DNS server = `10.7.0.1` (or the internal DNS once it exists), domain = your chosen domain, gateway = `10.7.0.1`.
-- [ ] N3.2 **DHCPv4 on eth2 (DMZ):** Static MAC→IP mappings for every server VM (e.g. `app-01 = 192.168.7.10`, `app-02 = 192.168.7.11`, `mon-01 = 192.168.7.20`, `ldap-01 = 192.168.7.30`). Optionally include a small dynamic pool for ad-hoc test VMs. **Key requirement from the original brief:** servers must always get the same IP, but the IP must still be assigned via DHCP (i.e. static DHCP reservation, not a manual static config on the server).
-- [ ] N3.3 **IPv6 — SLAAC segment:** On whichever segment you designated for SLAAC (e.g. eth1/internal), configure `router-advert` with `autonomous-flag true`, `on-link-flag true`, and the appropriate /64 prefix. Also advertise DNS server and domain via RA options.
-- [ ] N3.4 **IPv6 — DHCPv6 segment:** On whichever segment you designated for DHCPv6 (e.g. eth2/DMZ), configure stateful DHCPv6 with per-DUID reservations matching the IPv4 static mappings. Set RA flags: `managed-flag true`, `other-config-flag true`, `autonomous-flag false`.
-- [ ] N3.5 **IPv6 — ipv6-only segment:** Configure SLAAC on eth3 announcing the ULA prefix (e.g. `fd07:7::/64`).
-- [ ] N3.6 **Acceptance:** A freshly-booted Ubuntu VM on the internal segment gets a DHCPv4 lease + IPv6 address via the chosen method. A VM on the DMZ segment with a reserved MAC gets its predictable IPv4 + IPv6 addresses. A VM on the ipv6-only segment gets only a ULA address, no IPv4.
+- N3.1 **DHCPv4 on eth1 (internal):** Pool e.g. `10.7.0.100`–`10.7.0.200`, DNS server = `10.7.0.1` (or the internal DNS once it exists), domain = your chosen domain, gateway = `10.7.0.1`.
+- N3.2 **DHCPv4 on eth2 (DMZ):** Static MAC→IP mappings for every server VM (e.g. `app-01 = 192.168.7.10`, `app-02 = 192.168.7.11`, `mon-01 = 192.168.7.20`, `ldap-01 = 192.168.7.30`). Optionally include a small dynamic pool for ad-hoc test VMs. **Key requirement from the original brief:** servers must always get the same IP, but the IP must still be assigned via DHCP (i.e. static DHCP reservation, not a manual static config on the server).
+- N3.3 **IPv6 — SLAAC segment:** On whichever segment you designated for SLAAC (e.g. eth1/internal), configure `router-advert` with `autonomous-flag true`, `on-link-flag true`, and the appropriate /64 prefix. Also advertise DNS server and domain via RA options.
+- N3.4 **IPv6 — DHCPv6 segment:** On whichever segment you designated for DHCPv6 (e.g. eth2/DMZ), configure stateful DHCPv6 with per-DUID reservations matching the IPv4 static mappings. Set RA flags: `managed-flag true`, `other-config-flag true`, `autonomous-flag false`.
+- N3.5 **IPv6 — ipv6-only segment:** Configure SLAAC on eth3 announcing the ULA prefix (e.g. `fd07:7::/64`).
+- N3.6 **Acceptance:** A freshly-booted Ubuntu VM on the internal segment gets a DHCPv4 lease + IPv6 address via the chosen method. A VM on the DMZ segment with a reserved MAC gets its predictable IPv4 + IPv6 addresses. A VM on the ipv6-only segment gets only a ULA address, no IPv4.
 
 #### N4. DNS Forwarding + Split DNS (VyOS side)
-- [ ] N4.1 Configure DNS forwarding on VyOS: listen on `10.7.0.1` and `192.168.7.1`, forward general queries to public upstream resolvers (e.g. `1.1.1.1`, `8.8.8.8`, `2001:4860:4860::8888`).
-- [ ] N4.2 For the internal domain zone (`kyber.local`): forward queries to the FreeIPA DNS on `sk07-ldap` — **192.168.7.30** and **2001:1470:fffd:99::30** (S2) — so that internal clients resolve internal hostnames to private IPs.
-- [ ] N4.3 **Split-DNS effect:** When an internal client queries `api.kyber.local`, it gets the private DMZ address (e.g. `192.168.7.10`). When an external client queries the same name (if public DNS is configured), it gets the public IP `88.200.24.237`. This satisfies the original brief's split-DNS requirement.
-- [ ] N4.4 **Acceptance:** From `sk07-ws-01`, `dig api.kyber.local` returns the private IP. From an external host (or over VPN with appropriate DNS), the resolution returns `88.200.24.237` (or fails gracefully if no public DNS is set up).
+- N4.1 Configure DNS forwarding on VyOS: listen on `10.7.0.1` and `192.168.7.1`, forward general queries to public upstream resolvers (e.g. `1.1.1.1`, `8.8.8.8`, `2001:4860:4860::8888`).
+- N4.2 For the internal domain zone (`kyber.local`): forward queries to the FreeIPA DNS on `sk07-ldap` — **192.168.7.30** and **2001:1470:fffd:99::30** (S2) — so that internal clients resolve internal hostnames to private IPs.
+- N4.3 **Split-DNS effect:** When an internal client queries `api.kyber.local`, it gets the private DMZ address (e.g. `192.168.7.10`). When an external client queries the same name (if public DNS is configured), it gets the public IP `88.200.24.237`. This satisfies the original brief's split-DNS requirement.
+- N4.4 **Acceptance:** From `sk07-ws-01`, `dig api.kyber.local` returns the private IP. From an external host (or over VPN with appropriate DNS), the resolution returns `88.200.24.237` (or fails gracefully if no public DNS is set up).
 
 #### N5. NTP Relay
-- [ ] N5.1 VyOS is already configured as an NTP client (B3). Additionally, enable it to serve NTP to internal and DMZ clients: `set service ntp listen-address 10.7.0.1` and `192.168.7.1`.
-- [ ] N5.2 **Acceptance:** `chronyc sources` (or `ntpq -p`) on a DMZ server shows VyOS as a sync peer.
+- N5.1 VyOS is already configured as an NTP client (B3). Additionally, enable it to serve NTP to internal and DMZ clients: `set service ntp listen-address 10.7.0.1` and `192.168.7.1`.
+- N5.2 **Acceptance:** `chronyc sources` (or `ntpq -p`) on a DMZ server shows VyOS as a sync peer.
 
 #### N6. Firewall (dual-stack, zone-based)
 
@@ -176,28 +176,28 @@ First, write the firewall policy as a human-readable document (`/network/firewal
 | VPN → INTERNAL/DMZ | Allow as needed for remote workers (SSH, HTTPS, RDP, etc.) |
 | LOCAL → any | Allow all (router-initiated traffic) |
 
-- [ ] N6.1 Encode the full matrix as both IPv4 **and** IPv6 firewall rules. The original brief explicitly states: "Don't forget that your network is IPv4 and IPv6 (dual stack)." VyOS has separate firewall tables for IPv4 and IPv6.
-- [ ] N6.2 **Acceptance:** From outside, `nmap -Pn 88.200.24.237` and `nmap -6 …` show only intentionally exposed ports. From the DMZ, scanning the internal subnet is fully filtered.
+- N6.1 Encode the full matrix as both IPv4 **and** IPv6 firewall rules. The original brief explicitly states: "Don't forget that your network is IPv4 and IPv6 (dual stack)." VyOS has separate firewall tables for IPv4 and IPv6.
+- N6.2 **Acceptance:** From outside, `nmap -Pn 88.200.24.237` and `nmap -6 …` show only intentionally exposed ports. From the DMZ, scanning the internal subnet is fully filtered.
 
 #### N7. VPN
-- [ ] N7.1 Deploy a VPN server. Options: WireGuard on VyOS (natively supported in 1.4.x) or OpenVPN on a separate lightweight VM. If LDAP password authentication is required (optional requirement from the original brief), OpenVPN with `openvpn-auth-ldap` is the simpler path, since WireGuard is key-only.
-- [ ] N7.2 VPN must allow remote users to reach both `10.7.0.0/24` (internal) and `192.168.7.0/24` (DMZ). Push routes and DNS settings to clients.
-- [ ] N7.3 Expose the VPN port through the firewall (add matching rule in N6).
-- [ ] N7.4 **(optional)** Authenticate VPN users against the LDAP directory (S1). For WireGuard, this means scripting key generation gated by LDAP group membership. For OpenVPN, use the LDAP auth plugin directly.
-- [ ] N7.5 Provide a sample client configuration file in the repo (`/services/vpn/`).
-- [ ] N7.6 **Acceptance:** From a laptop off-LAN, connect to VPN, receive tunnel addresses, successfully SSH to an internal host, and `dig api.kyber.local` returns the internal IP.
+- N7.1 Deploy a VPN server. Options: WireGuard on VyOS (natively supported in 1.4.x) or OpenVPN on a separate lightweight VM. If LDAP password authentication is required (optional requirement from the original brief), OpenVPN with `openvpn-auth-ldap` is the simpler path, since WireGuard is key-only.
+- N7.2 VPN must allow remote users to reach both `10.7.0.0/24` (internal) and `192.168.7.0/24` (DMZ). Push routes and DNS settings to clients.
+- N7.3 Expose the VPN port through the firewall (add matching rule in N6).
+- N7.4 **(optional)** Authenticate VPN users against the LDAP directory (S1). For WireGuard, this means scripting key generation gated by LDAP group membership. For OpenVPN, use the LDAP auth plugin directly.
+- N7.5 Provide a sample client configuration file in the repo (`/services/vpn/`).
+- N7.6 **Acceptance:** From a laptop off-LAN, connect to VPN, receive tunnel addresses, successfully SSH to an internal host, and `dig api.kyber.local` returns the internal IP.
 
 #### N8. SNMP Agent on VyOS
-- [ ] N8.1 Enable SNMP on VyOS. Use SNMPv2c with a read-only community string (e.g. `kyber-ro`), or preferably SNMPv3 with authPriv for better security.
-- [ ] N8.2 Restrict SNMP access to only the monitoring server's IP (e.g. `192.168.7.20`).
-- [ ] N8.3 **Acceptance:** `snmpwalk` from the monitoring VM returns interface counters and system info.
+- N8.1 Enable SNMP on VyOS. Use SNMPv2c with a read-only community string (e.g. `kyber-ro`), or preferably SNMPv3 with authPriv for better security.
+- N8.2 Restrict SNMP access to only the monitoring server's IP (e.g. `192.168.7.20`).
+- N8.3 **Acceptance:** `snmpwalk` from the monitoring VM returns interface counters and system info.
 
 #### N9. (optional) NetFlow / sFlow Export
-- [ ] N9.1 Configure NetFlow (v9 or IPFIX) or sFlow export from VyOS to the monitoring VM (e.g. UDP/2055).
+- N9.1 Configure NetFlow (v9 or IPFIX) or sFlow export from VyOS to the monitoring VM (e.g. UDP/2055).
 
 #### N10. Snapshots & Documentation (continuous)
-- [ ] After every meaningful change, save `config.boot` as `/snapshots/NNNN-<topic>-config.boot` and commit.
-- [ ] Keep `/network/README.md` current with the topology diagram.
+- After every meaningful change, save `config.boot` as `/snapshots/NNNN-<topic>-config.boot` and commit.
+- Keep `/network/README.md` current with the topology diagram.
 
 ---
 
@@ -209,107 +209,107 @@ These tasks require only that Phase B is done (VMs reachable, gateway up, DNS/NT
 
 The original brief says: "Set up an on-prem user directory. Can be AD (Microsoft Active Directory) or a Linux LDAP server such as OpenLDAP or FreeIPA. Create a few test users that you'll reuse in other parts of the system (VPN, REST API auth, ...)."
 
-- [ ] S1.1 Deploy a Linux VM (or use `sk07-ldap`) on the DMZ or internal segment. Install your chosen directory service (FreeIPA recommended — gives LDAP + Kerberos + internal CA in one package; OpenLDAP is also fine).
-- [ ] S1.2 Create the directory tree for your domain (e.g. `dc=kyber,dc=local`).
-- [ ] S1.3 Create groups: at minimum `users`, `admins`, `vpn-users`, `api-writers` (or equivalent).
-- [ ] S1.4 Create at least 3–4 test users with varying group memberships, e.g.:
+- S1.1 Deploy a Linux VM (or use `sk07-ldap`) on the DMZ or internal segment. Install your chosen directory service (FreeIPA recommended — gives LDAP + Kerberos + internal CA in one package; OpenLDAP is also fine).
+- S1.2 Create the directory tree for your domain (e.g. `dc=kyber,dc=local`).
+- S1.3 Create groups: at minimum `users`, `admins`, `vpn-users`, `api-writers` (or equivalent).
+- S1.4 Create at least 3–4 test users with varying group memberships, e.g.:
   - `alice` ∈ admins, vpn-users
   - `bob` ∈ users, vpn-users
   - `carol` ∈ api-writers
   - `dave` ∈ users
-- [ ] S1.5 If using FreeIPA, export the CA certificate — both tracks will need it for TLS trust.
-- [ ] S1.6 **Acceptance:** `ldapsearch` against the directory with a test user's credentials succeeds and shows correct group memberships.
-- [ ] S1.7 Document the LDAP schema, user DNs, and groups in `/services/ldap/README.md`.
+- S1.5 If using FreeIPA, export the CA certificate — both tracks will need it for TLS trust.
+- S1.6 **Acceptance:** `ldapsearch` against the directory with a test user's credentials succeeds and shows correct group memberships.
+- S1.7 Document the LDAP schema, user DNs, and groups in `/dmz-ldap/README.md`.
 
 #### S2. Internal Authoritative DNS
 
 The original brief requires split DNS: an internal DNS server that returns private IPs for internal names, while external queries (if public DNS is configured) return the public IP.
 
-- [ ] S2.1 The internal authoritative DNS runs as **FreeIPA-integrated BIND on `sk07-ldap` (192.168.7.30 / 2001:1470:fffd:99::30)**, stood up by `ipa-server-install --setup-dns` (see `dmz-ldap/04-freeipa-install.md`). No separate BIND9/Unbound VM. *(Decision 2026-05-18: FreeIPA-owned DNS chosen over a standalone resolver on app-01 — standard FreeIPA pattern, keeps SRV/DNSSEC records managed automatically.)*
-- [ ] S2.2 `--setup-dns` already makes it authoritative for `kyber.local` (zone + IPA SRV records created automatically) — no manual zone bootstrap.
-- [ ] S2.3 Register A and AAAA records for every server in the DMZ (REST API, monitoring, etc.) pointing to their private IPs, via `ipa dnsrecord-add` (or the IPA Web UI).
-- [ ] S2.4 Coordinate with Person A: VyOS DNS forwarding (N4.2) forwards `kyber.local` queries to **192.168.7.30 / 2001:1470:fffd:99::30**.
-- [ ] S2.5 **(optional)** Split-DNS external side: FreeIPA's `bind-dyndb-ldap` backend does **not** support BIND views, so the "external" answer (`88.200.24.237`) cannot be a second view on this server — implement it at the VyOS forwarder / public-DNS layer instead (see N4.3).
-- [ ] S2.6 **Acceptance:** From an internal client, `dig api.kyber.local` returns the private DMZ IP.
-- [ ] S2.7 Document the zone file and records in `/services/dns/README.md`.
+- S2.1 The internal authoritative DNS runs as **FreeIPA-integrated BIND on `sk07-ldap` (192.168.7.30 / 2001:1470:fffd:99::30)**, stood up by `ipa-server-install --setup-dns` (see `dmz-ldap/04-freeipa-install.md`). No separate BIND9/Unbound VM. *(Decision 2026-05-18: FreeIPA-owned DNS chosen over a standalone resolver on app-01 — standard FreeIPA pattern, keeps SRV/DNSSEC records managed automatically.)*
+- S2.2 `--setup-dns` already makes it authoritative for `kyber.local` (zone + IPA SRV records created automatically) — no manual zone bootstrap.
+- S2.3 Register A and AAAA records for every server in the DMZ (REST API, monitoring, etc.) pointing to their private IPs, via `ipa dnsrecord-add` (or the IPA Web UI).
+- S2.4 Coordinate with Person A: VyOS DNS forwarding (N4.2) forwards `kyber.local` queries to **192.168.7.30 / 2001:1470:fffd:99::30**.
+- S2.5 **(optional)** Split-DNS external side: FreeIPA's `bind-dyndb-ldap` backend does **not** support BIND views, so the "external" answer (`88.200.24.237`) cannot be a second view on this server — implement it at the VyOS forwarder / public-DNS layer instead (see N4.3).
+- S2.6 **Acceptance:** From an internal client, `dig api.kyber.local` returns the private DMZ IP.
+- S2.7 Document the zone file and records in `/services/dns/README.md`.
 
 #### S3. REST API Service
 
 The original brief specifies: two related resources, content negotiation in at least 3 formats (JSON, XML, + one more), TLS with real certificates, persistent database, HTTP/1.1 + HTTP/2, high availability. Optional: authenticated endpoints via LDAP, HTTP/3, GraphQL.
 
-- [ ] S3.1 **Database:** Deploy PostgreSQL (or your chosen DB) on `sk07-app-01`. Set up the schema for two related resources (e.g. `customers` and `orders` with a foreign key relationship). **(optional)** Configure streaming replication to `sk07-app-02` for HA.
-- [ ] S3.2 **REST API application:** Implement full CRUD for both resources using your chosen framework (FastAPI, Express, Spring, etc.).
-- [ ] S3.3 **Content negotiation:** The API must respond differently based on the `Accept` header:
+- S3.1 **Database:** Deploy PostgreSQL (or your chosen DB) on `sk07-app-01`. Set up the schema for two related resources (e.g. `customers` and `orders` with a foreign key relationship). **(optional)** Configure streaming replication to `sk07-app-02` for HA.
+- S3.2 **REST API application:** Implement full CRUD for both resources using your chosen framework (FastAPI, Express, Spring, etc.).
+- S3.3 **Content negotiation:** The API must respond differently based on the `Accept` header:
   - `application/json` → JSON response
   - `application/xml` → XML response
   - At least one more format: `text/html` (rendered table), `text/csv`, `text/plain`, etc.
-- [ ] S3.4 **Persistence:** Data must survive server restarts (stored in the database, not in-memory).
-- [ ] S3.5 **TLS:** Generate proper certificates (via FreeIPA's CA, a self-signed CA, or Let's Encrypt if you have a public domain). Serve the API exclusively over HTTPS. Do not use throwaway self-signed certs — the original brief says "real certificates."
-- [ ] S3.6 **HTTP/2:** Configure the web server or reverse proxy (nginx recommended) with `listen 443 ssl http2;` so the API is accessible over HTTP/2 in addition to HTTP/1.1.
-- [ ] S3.7 **High availability:** Run at least two instances of the API (on `sk07-app-01` and `sk07-app-02`) behind a load balancer (nginx upstream, HAProxy, or keepalived with a VIP). Killing one instance must not take down the service.
-- [ ] S3.8 **(optional) Authenticated endpoints:** Protect at least one write operation (e.g. `POST`, `PUT`, or `DELETE`) so only users authenticated against the LDAP directory can call it. Verify the user belongs to a specific group (e.g. `api-writers`). Use HTTP Basic Auth or Bearer tokens (e.g. JWT issued after LDAP bind). `GET` requests remain public.
-- [ ] S3.9 **IPv6:** The API must be accessible over IPv6 as well. Bind nginx to both the IPv4 and IPv6 addresses of the DMZ VM. The original brief states: "Services you offer to external users must also be accessible over IPv6 where sensible."
-- [ ] S3.10 **(optional) HTTP/3:** Enable QUIC support in nginx ≥1.25 (`listen 443 quic reuseport;` + `Alt-Svc` header).
-- [ ] S3.11 **(optional) GraphQL:** Mirror the same resources via a GraphQL endpoint (e.g. using Strawberry for FastAPI, Apollo for Node.js, etc.).
-- [ ] S3.12 **Acceptance:**
+- S3.4 **Persistence:** Data must survive server restarts (stored in the database, not in-memory).
+- S3.5 **TLS:** Generate proper certificates (via FreeIPA's CA, a self-signed CA, or Let's Encrypt if you have a public domain). Serve the API exclusively over HTTPS. Do not use throwaway self-signed certs — the original brief says "real certificates."
+- S3.6 **HTTP/2:** Configure the web server or reverse proxy (nginx recommended) with `listen 443 ssl http2;` so the API is accessible over HTTP/2 in addition to HTTP/1.1.
+- S3.7 **High availability:** Run at least two instances of the API (on `sk07-app-01` and `sk07-app-02`) behind a load balancer (nginx upstream, HAProxy, or keepalived with a VIP). Killing one instance must not take down the service.
+- S3.8 **(optional) Authenticated endpoints:** Protect at least one write operation (e.g. `POST`, `PUT`, or `DELETE`) so only users authenticated against the LDAP directory can call it. Verify the user belongs to a specific group (e.g. `api-writers`). Use HTTP Basic Auth or Bearer tokens (e.g. JWT issued after LDAP bind). `GET` requests remain public.
+- S3.9 **IPv6:** The API must be accessible over IPv6 as well. Bind nginx to both the IPv4 and IPv6 addresses of the DMZ VM. The original brief states: "Services you offer to external users must also be accessible over IPv6 where sensible."
+- S3.10 **(optional) HTTP/3:** Enable QUIC support in nginx ≥1.25 (`listen 443 quic reuseport;` + `Alt-Svc` header).
+- S3.11 **(optional) GraphQL:** Mirror the same resources via a GraphQL endpoint (e.g. using Strawberry for FastAPI, Apollo for Node.js, etc.).
+- S3.12 **Acceptance:**
   - `curl -H 'Accept: application/json' https://api.kyber.local/customers` → JSON
   - Same with `application/xml` → XML
   - Same with `text/html` → rendered HTML
   - `curl -X POST .../orders` without auth token → `401`; with authorized user's token → `201`; with unauthorized user's token → `403` (if optional auth is implemented)
   - Browser dev tools confirm protocol is `h2`
   - Killing nginx/API on app-01 → traffic still served via app-02 within seconds
-- [ ] S3.13 Document endpoints, request/response formats, auth flow, and HA design in `/services/rest-api/README.md`.
+- S3.13 Document endpoints, request/response formats, auth flow, and HA design in `/services/rest-api/README.md`.
 
 #### S4. RAFT Cluster
 
 The original brief says: "Set up a service using the RAFT protocol on at least 3 machines. Can be anything that uses RAFT, e.g. etcd with a web application or similar. The service must be highly available."
 
-- [ ] S4.1 Install etcd on 3 nodes: `sk07-app-01`, `sk07-app-02`, and `sk07-mon`. Form a cluster. **(optional)** Use TLS for peer and client traffic, with certs from the internal CA.
-- [ ] S4.2 Build a small consumer application that demonstrably uses the etcd cluster. Options:
+- S4.1 Install etcd on 3 nodes: `sk07-app-01`, `sk07-app-02`, and `sk07-mon`. Form a cluster. **(optional)** Use TLS for peer and client traffic, with certs from the internal CA.
+- S4.2 Build a small consumer application that demonstrably uses the etcd cluster. Options:
   - Use etcd as a key-value backend for the REST API (e.g. feature flags, config store)
   - Build a minimal "leader status" web page that reads the current leader from etcd
   - Any other application that reads/writes to the etcd cluster
-- [ ] S4.3 **Acceptance:** `etcdctl endpoint status --cluster -w table` shows all 3 members with a leader. `systemctl stop etcd` on the leader → a new leader is elected within seconds → the consumer application continues working.
-- [ ] S4.4 Document the cluster setup and HA demonstration in `/services/etcd/README.md`.
+- S4.3 **Acceptance:** `etcdctl endpoint status --cluster -w table` shows all 3 members with a leader. `systemctl stop etcd` on the leader → a new leader is elected within seconds → the consumer application continues working.
+- S4.4 Document the cluster setup and HA demonstration in `/services/etcd/README.md`.
 
 #### S5. Monitoring (Prometheus + Grafana)
 
 The original brief says: "Configure SNMP for event logging (at least one source, e.g. traffic metrics, web/application server, CPU, memory). Data should be visible graphically (Prometheus + Grafana or similar). Set appropriately short SNMP polling intervals."
 
-- [ ] S5.1 Deploy Prometheus, Grafana, and `snmp_exporter` on `sk07-mon`.
-- [ ] S5.2 Configure Prometheus to scrape at short intervals (≤30s, as the brief requests short intervals):
+- S5.1 Deploy Prometheus, Grafana, and `snmp_exporter` on `sk07-mon`.
+- S5.2 Configure Prometheus to scrape at short intervals (≤30s, as the brief requests short intervals):
   - `snmp_exporter` targeting VyOS (interface traffic counters in/out on eth0–eth3, CPU, memory)
   - `node_exporter` on all Linux VMs (CPU, RAM, disk)
   - **(optional)** `nginx-prometheus-exporter` on app-01/app-02
   - **(optional)** `postgres_exporter` on app-01/app-02
   - **(optional)** etcd native `/metrics` endpoint
-- [ ] S5.3 Build Grafana dashboards showing at minimum:
+- S5.3 Build Grafana dashboards showing at minimum:
   - WAN traffic over time / per-interface throughput on VyOS
   - CPU and memory of at least one server
   - **(optional)** REST API request rate, error rate, latency
   - **(optional)** etcd cluster status
-- [ ] S5.4 Expose Grafana on HTTPS (behind nginx + TLS). Coordinate with Person A to allow access through the firewall if needed.
-- [ ] S5.5 **Acceptance:** Dashboards are visible and show live data. Generating traffic (e.g. `apt update`, `curl` loops) is reflected in the graphs.
-- [ ] S5.6 Document in `/services/monitoring/README.md`.
+- S5.4 Expose Grafana on HTTPS (behind nginx + TLS). Coordinate with Person A to allow access through the firewall if needed.
+- S5.5 **Acceptance:** Dashboards are visible and show live data. Generating traffic (e.g. `apt update`, `curl` loops) is reflected in the graphs.
+- S5.6 Document in `/services/monitoring/README.md`.
 
 #### S6. (optional) NetFlow / sFlow Analysis
-- [ ] S6.1 Install ntopng (or Cacti with NetFlow plugin) on `sk07-mon`, listening on the port that matches N9's export.
-- [ ] S6.2 Generate traffic (`iperf3`, large downloads). Capture screenshots of top-talkers / flow analysis.
+- S6.1 Install ntopng (or Cacti with NetFlow plugin) on `sk07-mon`, listening on the port that matches N9's export.
+- S6.2 Generate traffic (`iperf3`, large downloads). Capture screenshots of top-talkers / flow analysis.
 
 #### S7. (optional) IDS/IPS
-- [ ] S7.1 Install Suricata (or Snort) on `sk07-mon` or on each app VM.
-- [ ] S7.2 Demonstrate detection of: `nmap` scan from outside, SSH brute-force attempt (e.g. via `hydra`), or similar.
-- [ ] S7.3 Note: if ESXi security policy doesn't allow promiscuous mode on the vSwitch, run IDS locally on each VM's own NIC and document this limitation.
+- S7.1 Install Suricata (or Snort) on `sk07-mon` or on each app VM.
+- S7.2 Demonstrate detection of: `nmap` scan from outside, SSH brute-force attempt (e.g. via `hydra`), or similar.
+- S7.3 Note: if ESXi security policy doesn't allow promiscuous mode on the vSwitch, run IDS locally on each VM's own NIC and document this limitation.
 
 #### S8. IPv6-only Segment Verification
-- [ ] S8.1 Deploy `sk07-ipv6` on the `sk07-ipv6only` port group. Single NIC, no IPv4 address. It should auto-configure a ULA address via SLAAC (configured by Person A in N3.5).
-- [ ] S8.2 **Acceptance:** `curl -6 https://api.kyber.local` works (traffic goes through NPTv6). `curl -4 …` fails (no IPv4 stack). `ip -6 route` shows a default route via the link-local address of VyOS eth3.
-- [ ] S8.3 Document in `/services/ipv6/README.md`.
+- S8.1 Deploy `sk07-ipv6` on the `sk07-ipv6only` port group. Single NIC, no IPv4 address. It should auto-configure a ULA address via SLAAC (configured by Person A in N3.5).
+- S8.2 **Acceptance:** `curl -6 https://api.kyber.local` works (traffic goes through NPTv6). `curl -4 …` fails (no IPv4 stack). `ip -6 route` shows a default route via the link-local address of VyOS eth3.
+- S8.3 Document in `/services/ipv6/README.md`.
 
 #### S9. Client Workstations (heterogeneous OS)
-- [ ] S9.1 `sk07-ws-01`: Ubuntu Desktop on sk07-internal. Gets its IP via DHCP + IPv6 via SLAAC/DHCPv6 (depending on your choice). **(optional)** Join to FreeIPA via `ipa-client-install`. Trust the internal CA so HTTPS endpoints validate.
-- [ ] S9.2 `sk07-ws-02`: Windows 10/11 on sk07-internal. **(optional)** Join to the directory (via AD trust or Samba). This satisfies the heterogeneous OS requirement.
-- [ ] S9.3 **Acceptance:** Both clients can browse the internet, reach DMZ services, and resolve internal DNS names.
+- S9.1 `sk07-ws-01`: Ubuntu Desktop on sk07-internal. Gets its IP via DHCP + IPv6 via SLAAC/DHCPv6 (depending on your choice). **(optional)** Join to FreeIPA via `ipa-client-install`. Trust the internal CA so HTTPS endpoints validate.
+- S9.2 `sk07-ws-02`: Windows 10/11 on sk07-internal. **(optional)** Join to the directory (via AD trust or Samba). This satisfies the heterogeneous OS requirement.
+- S9.3 **Acceptance:** Both clients can browse the internet, reach DMZ services, and resolve internal DNS names.
 
 ---
 
@@ -317,11 +317,11 @@ The original brief says: "Configure SNMP for event logging (at least one source,
 
 Once both tracks are substantially complete, come together to wire everything end-to-end.
 
-- [ ] **I1 — DNAT / Port Forwarding:** Person A adds destination NAT on VyOS so that traffic to `88.200.24.237:443` is forwarded to the internal load-balanced VIP (e.g. `192.168.7.100:443`). For IPv6, routing the AAAA record directly to the DMZ address is preferred (no NAT needed for v6). Add matching firewall accept rules.
+- **I1 — DNAT / Port Forwarding:** Person A adds destination NAT on VyOS so that traffic to `88.200.24.237:443` is forwarded to the internal load-balanced VIP (e.g. `192.168.7.100:443`). For IPv6, routing the AAAA record directly to the DMZ address is preferred (no NAT needed for v6). Add matching firewall accept rules.
 
-- [ ] **I2 — Public DNS (if applicable):** If you have a real domain name, publish A/AAAA records. Otherwise, document that external access uses the raw IP and note how split-DNS would work with a real domain.
+- **I2 — Public DNS (if applicable):** If you have a real domain name, publish A/AAAA records. Otherwise, document that external access uses the raw IP and note how split-DNS would work with a real domain.
 
-- [ ] **I3 — End-to-end test plan.** Execute and screenshot each test; each becomes a paragraph in the report:
+- **I3 — End-to-end test plan.** Execute and screenshot each test; each becomes a paragraph in the report:
   - External user → REST API over HTTPS, test all 3 content-negotiation formats
   - Internal user → same hostname → split-DNS resolves to private IP
   - VPN user → can reach internal + DMZ subnets
@@ -331,9 +331,9 @@ Once both tracks are substantially complete, come together to wire everything en
   - `nmap` from outside → only intentionally exposed ports are open
   - Firewall blocks: DMZ cannot reach internal, WAN cannot reach internal
 
-- [ ] **I4 — Final config.boot snapshot** → `/snapshots/9999-final-config.boot`.
+- **I4 — Final config.boot snapshot** → `/snapshots/9999-final-config.boot`.
 
-- [ ] **I5 — Final network diagram** (drawio/excalidraw + PNG export) committed to `/network/diagrams/`.
+- **I5 — Final network diagram** (drawio/excalidraw + PNG export) committed to `/network/diagrams/`.
 
 ---
 
@@ -366,28 +366,28 @@ Output: `/report/kyber-report.md` → export to `/report/kyber-report.pdf`. Both
 
 Use this checklist to verify you've covered every requirement from the original brief before submission:
 
-- [ ] Users and servers in separate segments (internal vs. DMZ)
-- [ ] (optional) Heterogeneous OS — at least one Windows and one Linux client
-- [ ] Internal segment = `10.7.0.0/24`, DMZ = `192.168.7.0/24`
-- [ ] IPv6-only segment using ULA + NPTv6 (RFC 6296, VyOS ≥1.2)
-- [ ] DNS, domain name, NTP, DHCP, NAT all configured
-- [ ] Split DNS (internal returns private IPs, external returns public IP)
-- [ ] Servers get fixed IPs via DHCP (static reservations, not manual config)
-- [ ] Users have internet access
-- [ ] IPv6 configured: static on VyOS ✓, ≥1 segment SLAAC ✓, ≥1 segment DHCPv6 ✓
-- [ ] REST API: 2 related resources, content negotiation (JSON + XML + 1 more), TLS with real certs, persistent DB, HTTP/1.1 + HTTP/2, high availability
-- [ ] (optional) REST auth: at least one write operation protected via LDAP
-- [ ] (optional) HTTP/3
-- [ ] (optional) GraphQL
-- [ ] On-prem user directory (AD, OpenLDAP, or FreeIPA) with test users
-- [ ] Firewall: zone-based, dual-stack, documented with rationale
-- [ ] VPN: remote access to internal network, secure
-- [ ] (optional) VPN auth against LDAP
-- [ ] SNMP + graphical monitoring (Prometheus/Grafana or equivalent), short polling intervals
-- [ ] (optional) NetFlow/sFlow + analyzer (ntopng, Cacti plugin, etc.)
-- [ ] (optional) IDS/IPS demonstration (Suricata, Snort, etc.)
-- [ ] RAFT on ≥3 nodes, HA demonstrated
-- [ ] Technical report with network diagram, all services documented, firewall rules, configs
+- Users and servers in separate segments (internal vs. DMZ)
+- (optional) Heterogeneous OS — at least one Windows and one Linux client
+- Internal segment = `10.7.0.0/24`, DMZ = `192.168.7.0/24`
+- IPv6-only segment using ULA + NPTv6 (RFC 6296, VyOS ≥1.2)
+- DNS, domain name, NTP, DHCP, NAT all configured
+- Split DNS (internal returns private IPs, external returns public IP)
+- Servers get fixed IPs via DHCP (static reservations, not manual config)
+- Users have internet access
+- IPv6 configured: static on VyOS ✓, ≥1 segment SLAAC ✓, ≥1 segment DHCPv6 ✓
+- REST API: 2 related resources, content negotiation (JSON + XML + 1 more), TLS with real certs, persistent DB, HTTP/1.1 + HTTP/2, high availability
+- (optional) REST auth: at least one write operation protected via LDAP
+- (optional) HTTP/3
+- (optional) GraphQL
+- On-prem user directory (AD, OpenLDAP, or FreeIPA) with test users
+- Firewall: zone-based, dual-stack, documented with rationale
+- VPN: remote access to internal network, secure
+- (optional) VPN auth against LDAP
+- SNMP + graphical monitoring (Prometheus/Grafana or equivalent), short polling intervals
+- (optional) NetFlow/sFlow + analyzer (ntopng, Cacti plugin, etc.)
+- (optional) IDS/IPS demonstration (Suricata, Snort, etc.)
+- RAFT on ≥3 nodes, HA demonstrated
+- Technical report with network diagram, all services documented, firewall rules, configs
 
 ---
 
