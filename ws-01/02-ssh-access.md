@@ -39,7 +39,7 @@ show dhcp server leases
 Substitute the address found above. The key is pushed through the router jump host:
 
 ```powershell
-$ws  = '10.7.0.x'                                   # ws-01's current lease
+$ws  = '10.7.0.101'                                   # ws-01's current lease
 $cmd = 'mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys'
 Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub | ssh -J vyos@88.200.24.237 kyber@$ws $cmd
 ```
@@ -49,7 +49,7 @@ Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub | ssh -J vyos@88.200.24.237 kyb
 ## 4. Test
 
 ```
-ssh -J vyos@88.200.24.237 kyber@10.7.0.x
+ssh -J vyos@88.200.24.237 kyber@10.7.0.101
 ```
 
 > Because the lease is dynamic, the address can change across reboots. If a
