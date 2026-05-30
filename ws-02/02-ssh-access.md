@@ -57,7 +57,7 @@ only writable to `Administrators`/`SYSTEM`. Push the key through the router jump
 host, then fix the ACL:
 
 ```powershell
-$ws  = '10.7.0.x'                                   # ws-02's current lease
+$ws  = '10.7.0.100'                                   # ws-02's current lease
 $key = Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub
 $aak = 'C:\ProgramData\ssh\administrators_authorized_keys'
 $cmd = "powershell -NoProfile -Command \`"Add-Content -Path '$aak' -Value '$key'; icacls '$aak' /inheritance:r /grant 'Administrators:F' /grant 'SYSTEM:F'\`""
@@ -70,7 +70,7 @@ ssh -J vyos@88.200.24.237 Administrator@$ws $cmd
 ## 4. Test
 
 ```powershell
-ssh -J vyos@88.200.24.237 Administrator@10.7.0.x
+ssh -J vyos@88.200.24.237 Administrator@10.7.0.100
 ```
 
 > Because the lease is dynamic, the address can change across reboots. If a

@@ -83,29 +83,21 @@ curl.exe -6 https://api.kyber.local/health
 **Auth (S3.8) — `carol` ∈ `api-writers`, `dave` ∉ (replace `PASS`):**
 
 ```powershell
-$body = '{"customer_id":1,"product":"Bolt","quantity":5,"amount":4.95}'
-curl.exe -X POST https://api.kyber.local/orders -H "Content-Type: application/json" -d $body                  # 401
-curl.exe -u dave:PASS  -X POST https://api.kyber.local/orders -H "Content-Type: application/json" -d $body    # 403
-curl.exe -u carol:PASS -X POST https://api.kyber.local/orders -H "Content-Type: application/json" -d $body    # 201
+# Write the JSON to a file and feed it with -d "@file" — do NOT pass it inline.
+'{"customer_id":1,"product":"Bolt","quantity":5,"amount":4.95}' | Set-Content -Encoding ascii order.json
+curl.exe -X POST https://api.kyber.local/orders -H "Content-Type: application/json" -d "@order.json"                  # 401
+curl.exe -u dave:'8Bd:.3(zbm@PeBpbWQ/)2~'  -X POST https://api.kyber.local/orders -H "Content-Type: application/json" -d "@order.json"    # 403
+curl.exe -u carol:'1Xs~9dnhoJ(@K>BL;fjZ~Y' -X POST https://api.kyber.local/orders -H "Content-Type: application/json" -d "@order.json"    # 201
 ```
+
+> **Don't pass the JSON inline as `-d $body`.** Windows PowerShell strips the embedded
+> double quotes before `curl.exe` sees them, so the API receives `{customer_id:1,…}`
+> (unquoted keys) and returns `422` *"Expecting property name enclosed in double quotes"*.
+> Reading the body from a file with `-d "@order.json"` sidesteps the quoting entirely.
+> (The PowerShell-native `Invoke-RestMethod` alternative below has no such issue.)
 
 > **HTTP/2 caveat.** The bundled Windows `curl.exe` uses Schannel and is usually built
 > *without* nghttp2 — `curl.exe -V` won't list `HTTP2`, and `--http2` silently falls back to
 > HTTP/1.1. Don't rely on it for the S3.6 check. Verify `h2` from `ws-01` (Linux) instead, or
 > open `https://api.kyber.local/customers` in Edge/Chrome DevTools → Network → the
 > **Protocol** column shows `h2`. The other §6 checks are unaffected.
-
-### PowerShell-native alternative
-
-```powershell
-Invoke-RestMethod https://api.kyber.local/customers -Headers @{ Accept = 'application/json' }
-
-$cred = Get-Credential carol        # enter carol's password
-Invoke-RestMethod https://api.kyber.local/orders -Method Post -Credential $cred `
-  -ContentType application/json `
-  -Body '{"customer_id":1,"product":"Bolt","quantity":5,"amount":4.95}'
-```
-
-`Invoke-RestMethod` also validates against the `LocalMachine\Root` store from §2. (It sends
-Basic credentials in response to the API's `401` challenge, so the unauthenticated/forbidden
-cases return `401`/`403` as above.)

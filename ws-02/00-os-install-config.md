@@ -50,5 +50,3 @@ ping 10.7.0.1                       # internal gateway
 ping 1.1.1.1                        # WAN (internet reachability, S9.3)
 ping -6 2001:1470:fffd:9a::1        # IPv6 gateway
 ```
-
-Continue with [`01-ca-trust-and-acceptance.md`](01-ca-trust-and-acceptance.md).
