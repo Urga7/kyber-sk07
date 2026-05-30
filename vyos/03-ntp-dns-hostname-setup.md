@@ -7,7 +7,7 @@
 - `set service ntp server 1.si.pool.ntp.org`
 - `set service ntp server 1.europe.pool.ntp.org`
 - `set service ntp allow-client address '192.168.7.0/24'`
-- `set service ntp allow-client address '10.7.0.0/24'˙`
+- `set service ntp allow-client address '10.7.0.0/24'`
 - `set service ntp allow-client address '2001:1470:fffd:99::/64'`
 - `set service ntp allow-client address '2001:1470:fffd:9a::/64'`
 - `set system time-zone Europe/Ljubljana`
@@ -31,6 +31,7 @@
 - `set service dns forwarding allow-from '10.7.0.0/24'`
 - `set service dns forwarding allow-from '192.168.7.0/24'`
 - `set service dns forwarding allow-from 'fd07:1:1:1::/64'`
-- `set service dns forwarding allow-from '2001:1470:fffd:98::/62'`
+- `set service dns forwarding allow-from '2001:1470:fffd:99::/64'`
+- `set service dns forwarding allow-from '2001:1470:fffd:9a::/64'`
 - `set service dns forwarding no-serve-rfc1918`
 - 
