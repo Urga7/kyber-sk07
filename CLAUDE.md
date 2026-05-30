@@ -76,7 +76,7 @@ Architecture worth knowing before editing:
 ## Two-Track Workflow
 
 Two parallel workstreams after bootstrap:
-- **Track N (Networking)** — NAT, NPTv6, DHCP/DHCPv6/SLAAC, DNS forwarding, NTP, firewall, VPN, SNMP — all on `kyber-rtr-01` (`vyos/`).
+- **Track N (Networking)** — NAT, NPTv6, DHCP/DHCPv6/SLAAC, DNS forwarding, NTP, firewall, VPN, SNMP — all on `kyber-rtr` (`vyos/`).
 - **Track S (Services)** — FreeIPA/LDAP, internal DNS, REST API, etcd, monitoring — on the DMZ app VMs (`dmz-app-01/`, `dmz-ldap/`) and exercised from the internal clients (`ws-01/`, `ws-02/`).
 
 When generating config or docs, identify the track and follow the conventions of the existing files in that track's directory.

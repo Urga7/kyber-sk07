@@ -78,7 +78,7 @@ These tasks must be completed before either workstream can proceed independently
 
 - **B1** Create the GitHub repo with the layout from §0.6. Commit §0 into `/README.md`.
 
-- **B2** SSH to the existing VyOS VM. Run `show configuration commands` and export `/config/config.boot` (via `scp`) into `/snapshots/0000-baseline-config.boot`.
+- **B2** SSH to the existing VyOS VM. Run `show configuration commands` and export `/config/config.boot` (via `scp`) to `vyos/snapshot-config.boot`.
 
 - **B3** Set system-level parameters on VyOS:
   - `system host-name kyber-rtr`
@@ -196,7 +196,7 @@ First, write the firewall policy as a human-readable document (`/network/firewal
 - N9.1 Configure NetFlow (v9 or IPFIX) or sFlow export from VyOS to the monitoring VM (e.g. UDP/2055).
 
 #### N10. Snapshots & Documentation (continuous)
-- After every meaningful change, save `config.boot` as `/snapshots/NNNN-<topic>-config.boot` and commit.
+- After every meaningful change, overwrite `vyos/snapshot-config.boot` with the latest `/config/config.boot` from the router and commit.
 - Keep `/network/README.md` current with the topology diagram.
 
 ---
@@ -331,7 +331,7 @@ Once both tracks are substantially complete, come together to wire everything en
   - `nmap` from outside → only intentionally exposed ports are open
   - Firewall blocks: DMZ cannot reach internal, WAN cannot reach internal
 
-- **I4 — Final config.boot snapshot** → `/snapshots/9999-final-config.boot`.
+- **I4 — Final config.boot snapshot** → refresh `vyos/snapshot-config.boot` so it reflects the final integrated state.
 
 - **I5 — Final network diagram** (drawio/excalidraw + PNG export) committed to `/network/diagrams/`.
 
@@ -394,6 +394,6 @@ Use this checklist to verify you've covered every requirement from the original 
 ## 6. Working Agreement
 
 - All work committed to GitHub. PRs reviewed by the other person before merging.
-- VyOS changes: every `commit; save` is followed by a `config.boot` snapshot copied into `/snapshots/`.
+- VyOS changes: every `commit; save` is followed by copying `/config/config.boot` from the router to `vyos/snapshot-config.boot` (single latest snapshot, overwritten in place).
 - Service VM configs: live in `/etc/…` on the box, but a copy goes to `/services/<name>/` in the repo on every meaningful change.
 - Disagreements on scope or technical choices recorded in a `/decisions.md` with date and rationale.

@@ -10,7 +10,21 @@
 - `set service ntp allow-client address '10.7.0.0/24'`
 - `set service ntp allow-client address '2001:1470:fffd:99::/64'`
 - `set service ntp allow-client address '2001:1470:fffd:9a::/64'`
+- `set service ntp allow-client address 'fd07:1:1:1::/64'`
+
 - `set system time-zone Europe/Ljubljana`
+
+### DHCPv4 NTP advertisement (internal + DMZ)
+- `set service dhcp-server shared-network-name INTERNAL subnet 10.7.0.0/24 ntp-server '10.7.0.1'`
+- `set service dhcp-server shared-network-name DMZ subnet 192.168.7.0/24 ntp-server '192.168.7.1'`
+
+### DHCPv6 NTP advertisement (internal + DMZ)
+- `set service dhcpv6-server shared-network-name INTERNAL6 subnet 2001:1470:fffd:9a::/64 sntp-server '2001:1470:fffd:9a::1'`
+- `set service dhcpv6-server shared-network-name DMZ6 subnet 2001:1470:fffd:99::/64 sntp-server '2001:1470:fffd:99::1'`
+
+### Stateless DHCPv6 on ipv6-only (NTP only)
+- `set service router-advert interface eth3 other-config-flag`
+- `set service dhcpv6-server shared-network-name V6ONLY subnet fd07:1:1:1::/64 sntp-server 'fd07:1:1:1::1'`
 
 ### DNS split
 - `set service dns forwarding name-server '1.1.1.1'`
@@ -34,4 +48,7 @@
 - `set service dns forwarding allow-from '2001:1470:fffd:99::/64'`
 - `set service dns forwarding allow-from '2001:1470:fffd:9a::/64'`
 - `set service dns forwarding no-serve-rfc1918`
-- 
+
+### DNS advertisement on ipv6-only (RDNSS via SLAAC)
+- `set service router-advert interface eth3 name-server 'fd07:1:1:1::1'`
+- `set service router-advert interface eth3 dnssl 'kyber.local'`
