@@ -8,6 +8,7 @@ The IPv4 DMZ reverse zone is referenced by the VyOS forwarder
 ```
 ipa dnszone-add 7.168.192.in-addr.arpa. --name-from-ip=192.168.7.0/24
 ipa dnsrecord-add 7.168.192.in-addr.arpa. 30 --ptr-rec=kyber-ldap.kyber.local.
+ipa dnszone-add 9.9.0.0.d.f.f.f.0.7.4.1.1.0.0.2.ip6.arpa
 dig @127.0.0.1 -x 192.168.7.30 +short   # -> kyber-ldap.kyber.local.
 ```
 

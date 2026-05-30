@@ -57,10 +57,15 @@ This rebuilds `/etc/ssl/certs`, the store used by `curl`, `wget`, `openssl`, and
 ## 2. Verify trust
 
 ```
-curl -sI https://api.kyber.local/health         # HTTP/.. 200, and no TLS error
+curl -s -o /dev/null -w '%{http_code}\n' https://api.kyber.local/health   # 200, and no TLS error
 openssl s_client -connect api.kyber.local:443 -servername api.kyber.local </dev/null 2>/dev/null \
   | grep -i 'verify return code'                 # 0 (ok)
 ```
+
+> Use a plain **GET** here, not `curl -I` — `-I` sends a HEAD request and `/health`
+> is GET-only, so it answers `405 Method Not Allowed`. A `405` (or any HTTP status)
+> still proves trust succeeded: an untrusted CA aborts before any response with
+> `curl: (60) SSL certificate problem` and prints no status line.
 
 If you see *"unable to get local issuer certificate"* / *"self-signed certificate in chain"*,
 the CA is not trusted yet — recheck §1 (correct path, `.crt` extension, `update-ca-certificates` ran).
@@ -78,8 +83,11 @@ curl -H 'Accept: text/html'        https://api.kyber.local/customers     # rende
 **HTTP/2 (S3.6) — confirm the negotiated protocol is `h2`:**
 
 ```
-curl -sI --http2 https://api.kyber.local/customers | grep -i '^HTTP'     # HTTP/2 200
+curl -s -o /dev/null -w 'HTTP/%{http_version} %{http_code}\n' --http2 https://api.kyber.local/customers   # HTTP/2 200
 ```
+
+> Again a **GET**, not `curl -I`: `/customers` is GET-only and HEAD returns `405`.
+> The negotiated `HTTP/2` is what this step verifies — the status code is incidental.
 
 **IPv6 (S3.9) — the client's `9a::` lease routes to the API's `99::10`:**
 
@@ -93,7 +101,7 @@ curl -6 https://api.kyber.local/health
 curl -X POST https://api.kyber.local/orders \
   -H 'Content-Type: application/json' \
   -d '{"customer_id":1,"product":"Bolt","quantity":5,"amount":4.95}'      # 401 (no auth)
-curl -u dave:PASS  -X POST https://api.kyber.local/orders \
+curl -u dave:"8Bd:.3(zbm@PeBpbWQ/)2~"  -X POST https://api.kyber.local/orders \
   -H 'Content-Type: application/json' \
   -d '{"customer_id":1,"product":"Bolt","quantity":5,"amount":4.95}'      # 403 (not api-writers)
 curl -u carol:PASS -X POST https://api.kyber.local/orders \
