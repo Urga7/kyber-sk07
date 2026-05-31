@@ -64,7 +64,7 @@ Group services sensibly — don't create a separate VM for each feature, but don
 | `kyber-rtr` | VyOS 1.4.4                  | all 4 NICs | Router, firewall, NAT, NPTv6, DHCP/DHCPv6, DNS forwarder, NTP relay, VPN endpoint, SNMP agent |
 | `kyber-app-01`        | Ubuntu Server LTS           | sk07-dmz | nginx (TLS, HTTP/2), REST API instance 1, PostgreSQL primary, etcd node 1 |
 | `kyber-app-02`        | Ubuntu Server LTS           | sk07-dmz | nginx (TLS, HTTP/2), REST API instance 2, PostgreSQL replica, etcd node 2 |
-| `kyber-mon-01`        | Ubuntu Server LTS           | sk07-dmz | Prometheus, Grafana, snmp_exporter, node_exporter, etcd node 3, *(opt)* ntopng, *(opt)* Suricata |
+| `kyber-mon`        | Ubuntu Server LTS           | sk07-dmz | Prometheus, Grafana, snmp_exporter, node_exporter, etcd node 3, *(opt)* ntopng, *(opt)* Suricata |
 | `kyber-ldap`          | Alma Linux 10.1             | sk07-dmz (or sk07-internal) | FreeIPA — the on-prem user directory; internal authoritative DNS for `kyber.local` (FreeIPA-integrated BIND) |
 | `kyber-ws-01` | Ubuntu Desktop (or similar) | sk07-internal | End-user Linux client (heterogeneous OS requirement) |
 | `kyber-ws-02` | Windows 10/11               | sk07-internal | End-user Windows client (heterogeneous OS requirement) |
@@ -264,7 +264,7 @@ The original brief specifies: two related resources, content negotiation in at l
 
 The original brief says: "Set up a service using the RAFT protocol on at least 3 machines. Can be anything that uses RAFT, e.g. etcd with a web application or similar. The service must be highly available."
 
-- S4.1 Install etcd on 3 nodes: `kyber-app-01`, `kyber-app-02`, and `kyber-mon-01`. Form a cluster. **(optional)** Use TLS for peer and client traffic, with certs from the internal CA.
+- S4.1 Install etcd on 3 nodes: `kyber-app-01`, `kyber-app-02`, and `kyber-mon`. Form a cluster. **(optional)** Use TLS for peer and client traffic, with certs from the internal CA.
 - S4.2 Build a small consumer application that demonstrably uses the etcd cluster. Options:
   - Use etcd as a key-value backend for the REST API (e.g. feature flags, config store)
   - Build a minimal "leader status" web page that reads the current leader from etcd
@@ -276,7 +276,7 @@ The original brief says: "Set up a service using the RAFT protocol on at least 3
 
 The original brief says: "Configure SNMP for event logging (at least one source, e.g. traffic metrics, web/application server, CPU, memory). Data should be visible graphically (Prometheus + Grafana or similar). Set appropriately short SNMP polling intervals."
 
-- S5.1 Deploy Prometheus, Grafana, and `snmp_exporter` on `kyber-mon-01`.
+- S5.1 Deploy Prometheus, Grafana, and `snmp_exporter` on `kyber-mon`.
 - S5.2 Configure Prometheus to scrape at short intervals (≤30s, as the brief requests short intervals):
   - `snmp_exporter` targeting VyOS (interface traffic counters in/out on eth0–eth3, CPU, memory)
   - `node_exporter` on all Linux VMs (CPU, RAM, disk)
@@ -293,11 +293,11 @@ The original brief says: "Configure SNMP for event logging (at least one source,
 - S5.6 Document in `/services/monitoring/README.md`.
 
 #### S6. (optional) NetFlow / sFlow Analysis
-- S6.1 Install ntopng (or Cacti with NetFlow plugin) on `kyber-mon-01`, listening on the port that matches N9's export.
+- S6.1 Install ntopng (or Cacti with NetFlow plugin) on `kyber-mon`, listening on the port that matches N9's export.
 - S6.2 Generate traffic (`iperf3`, large downloads). Capture screenshots of top-talkers / flow analysis.
 
 #### S7. (optional) IDS/IPS
-- S7.1 Install Suricata (or Snort) on `kyber-mon-01` or on each app VM.
+- S7.1 Install Suricata (or Snort) on `kyber-mon` or on each app VM.
 - S7.2 Demonstrate detection of: `nmap` scan from outside, SSH brute-force attempt (e.g. via `hydra`), or similar.
 - S7.3 Note: if ESXi security policy doesn't allow promiscuous mode on the vSwitch, run IDS locally on each VM's own NIC and document this limitation.
 

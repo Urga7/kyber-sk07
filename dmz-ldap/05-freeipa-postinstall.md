@@ -10,7 +10,7 @@ ipa dnszone-add 7.168.192.in-addr.arpa. --name-from-ip=192.168.7.0/24
 ipa dnsrecord-add 7.168.192.in-addr.arpa. 30 --ptr-rec=kyber-ldap.kyber.local.
 ipa dnsrecord-add 7.168.192.in-addr.arpa 10 --ptr-rec=kyber-app-01.kyber.local.
 ipa dnsrecord-add 7.168.192.in-addr.arpa 11 --ptr-rec=kyber-app-02.kyber.local.
-ipa dnsrecord-add 7.168.192.in-addr.arpa 20 --ptr-rec=kyber-mon-01.kyber.local.
+ipa dnsrecord-add 7.168.192.in-addr.arpa 20 --ptr-rec=kyber-mon.kyber.local.
 ipa dnszone-add 9.9.0.0.d.f.f.f.0.7.4.1.1.0.0.2.ip6.arpa
 dig @127.0.0.1 -x 192.168.7.30 +short   # -> kyber-ldap.kyber.local.
 ```
@@ -24,11 +24,11 @@ reservation yet; add AAAA records when their v6 addresses are assigned (N3.4):
 ```
 ipa dnsrecord-add kyber.local kyber-app-01 --a-rec=192.168.7.10
 ipa dnsrecord-add kyber.local kyber-app-02 --a-rec=192.168.7.11
-ipa dnsrecord-add kyber.local kyber-mon-01 --a-rec=192.168.7.20
+ipa dnsrecord-add kyber.local kyber-mon --a-rec=192.168.7.20
 
 ipa dnsrecord-add kyber.local kyber-app-01 --aaaa-rec=2001:1470:fffd:99::10
 ipa dnsrecord-add kyber.local kyber-app-02 --aaaa-rec=2001:1470:fffd:99::11
-ipa dnsrecord-add kyber.local kyber-mon-01 --aaaa-rec=2001:1470:fffd:99::20
+ipa dnsrecord-add kyber.local kyber-mon --aaaa-rec=2001:1470:fffd:99::20
 
 ```
 
