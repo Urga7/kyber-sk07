@@ -45,7 +45,7 @@ firewall {
             }
             rule 24 {
                 action "accept"
-                description "SNMP from mon-01 only"
+                description "SNMP from mon only"
                 destination {
                     port "161"
                 }
@@ -254,7 +254,7 @@ firewall {
             }
             rule 24 {
                 action "accept"
-                description "SNMP from mon-01 only"
+                description "SNMP from mon only"
                 destination {
                     port "161"
                 }
@@ -653,7 +653,7 @@ service {
                     ip-address "192.168.7.30"
                     mac-address "00:0C:29:82:FB:06"
                 }
-                static-mapping mon-01 {
+                static-mapping mon {
                     ip-address "192.168.7.20"
                     mac-address "00:0C:29:1D:A9:6E"
                 }
@@ -686,7 +686,7 @@ service {
                     identifier "00:03:00:01:00:0C:29:82:FB:06"
                     ipv6-address "2001:1470:fffd:99::30"
                 }
-                static-mapping mon-01 {
+                static-mapping mon {
                     identifier "00:03:00:01:00:0C:29:1D:A9:6E"
                     ipv6-address "2001:1470:fffd:99::20"
                 }
@@ -798,6 +798,7 @@ service {
         community kyber-ro {
             authorization "ro"
             network "192.168.7.20/32"
+            network "2001:1470:fffd:99::20/128"
         }
         contact "sk07"
         listen-address 192.168.7.1 {

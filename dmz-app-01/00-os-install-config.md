@@ -30,7 +30,7 @@ addresses (pre-allocated in §0.5 / N3.2):
 | IPv4 | `192.168.7.10/24`, GW `192.168.7.1` | DHCPv4 reservation (MAC→IP) |
 | IPv6 | `2001:1470:fffd:99::10/64`, GW `2001:1470:fffd:99::1` | DHCPv6 stateful reservation (DUID) |
 
-This host is **dual-stack** (unlike `kyber-ldap`, which had IPv6 disabled): the REST API
+This host is **dual-stack** like every host in the lab: the REST API
 must be reachable over IPv6 (S3.9), so leave both stacks enabled.
 
 In the installer, accept DHCP for both IPv4 and IPv6. The resulting netplan
@@ -71,7 +71,8 @@ ip -br addr show ens160     # expect 192.168.7.10 + 2001:1470:fffd:99::10
 >
 > The DHCPv6-assigned global address is a `/128` (normal for stateful DHCPv6 — the on-link
 > `/64` comes from the router advertisement). This step applies to **every dual-stack DMZ
-> host** (app-02, mon); `kyber-ldap` escaped it only because it had IPv6 disabled.
+> host** (app-02, mon); `kyber-ldap` does the equivalent on NetworkManager via
+> `ipv6.dhcp-duid` (see `dmz-ldap/03-dhcpv6-prep.md`), not systemd-networkd.
 
 - Hostname (installer "Your server's name"): `kyber-app-01`
 

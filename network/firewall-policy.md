@@ -72,7 +72,7 @@ Traffic destined for the router itself, arriving from the internet.
 | 999 | any   | any          | drop + log | Everything else. No raw SSH from WAN — management is VPN-only. |
 
 > **Temporary exception (pre-N7):** until WireGuard is deployed, the router is
-> only reachable for management over WAN SSH. The encoding (06) therefore adds a
+> only reachable for management over WAN SSH. The encoding (07) therefore adds a
 > **temporary `tcp/22` accept** here, source-restricted to the admin host where
 > possible, and **removed once N7 is live**. Without it, committing the policy
 > would lock out the remote admin session.
@@ -178,7 +178,7 @@ The NPTv6 safety drop at rule 5 lives in the 1–9 defensive-drop range (see
 > NPTv6 (which runs in POSTROUTING), so on this path the firewall always sees the
 > pre-translation ULA source `fd07:1:1:1::/64` (itself inside `fc00::/7`).
 > Dropping `fc00::/7` here would block all legitimate egress, so **rule 5 is not
-> encoded on V6ONLY → WAN** (06). The leak it guards against can't occur because
+> encoded on V6ONLY → WAN** (07). The leak it guards against can't occur because
 > the NPTv6 source rule covers the whole `fd07:1:1:1::/64`; the inbound direction
 > is still protected by the `fc00::/7` bogon drop in WAN → LOCAL.
 
@@ -279,7 +279,7 @@ security policy supports it, enable RA-Guard (VLAN ACLs) on the access vSwitches
 Document the limitation if the hypervisor does not support it.
 
 VyOS has no "ICMP-type group" construct, so these aren't literal `firewall group`
-objects. On LAN-facing ingress (INTERNAL/DMZ/V6ONLY → LOCAL) the encoding (06)
+objects. On LAN-facing ingress (INTERNAL/DMZ/V6ONLY → LOCAL) the encoding (07)
 simply accepts `protocol ipv6-icmp` wholesale — NDP, RS/RA, echo and errors are
 all legitimate there. On WAN ingress the Group A types are accepted as **explicit
 per-type rules** (`icmpv6 type echo-request|neighbor-solicitation|…`), the error
@@ -350,7 +350,7 @@ flood syslog with noise. Security-relevant paths are logged explicitly.
 
 ## Notes for runbook encoding (N6)
 
-Encoded zone-based on VyOS 1.4.4 in `vyos/06-firewall-setup.md`. Syntax confirmed
+Encoded zone-based on VyOS 1.4.4 in `vyos/07-firewall-setup.md`. Syntax confirmed
 on the box:
 
 - Zones: `set firewall zone <zone> interface <eth>` (note: `interface`, not

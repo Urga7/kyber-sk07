@@ -15,7 +15,9 @@ ens160 interface:
         - Gateway: 192.168.7.1
     - DNS pinned to 1.1.1.1 (`ipv4.ignore-auto-dns yes`) through FreeIPA prep;
       `ipa-server-install` later repoints resolv.conf at 127.0.0.1
-- IPv6 method: Disabled
+- IPv6 method: Disabled **at install only** — FreeIPA installs cleanly v4-first, then `ens160`
+  is flipped to dual-stack DHCPv6 (DMZ6 reservation → `2001:1470:fffd:99::30`) in
+  [`03-dhcpv6-prep.md`](03-dhcpv6-prep.md) §2. End state: **dual-stack**, like every host.
 - Hostname: `kyber-ldap.kyber.local`
 
 After the first boot:

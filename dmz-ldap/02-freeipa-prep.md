@@ -68,7 +68,7 @@ sudo systemctl restart chronyd
 chronyc sources    # 192.168.7.1 should appear as a candidate
 ```
 
-> **Router prerequisite (run on `kyber-rtr-01`, not the VM).** VyOS's
+> **Router prerequisite (run on `kyber-rtr`, not the VM).** VyOS's
 > `ntp allow-client` in `vyos/03-ntp-dns-hostname-setup.md` only listed the IPv6
 > DMZ/internal prefixes, so NTP from 192.168.7.30 is blocked until the IPv4
 > prefixes are added:

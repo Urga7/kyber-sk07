@@ -395,5 +395,3 @@ Use this checklist to verify you've covered every requirement from the original 
 
 - All work committed to GitHub. PRs reviewed by the other person before merging.
 - VyOS changes: every `commit; save` is followed by copying `/config/config.boot` from the router to `vyos/snapshot-config.boot` (single latest snapshot, overwritten in place).
-- Service VM configs: live in `/etc/…` on the box, but a copy goes to `/services/<name>/` in the repo on every meaningful change.
-- Disagreements on scope or technical choices recorded in a `/decisions.md` with date and rationale.

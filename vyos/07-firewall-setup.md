@@ -1,4 +1,4 @@
-# 06 — Firewall (N6)
+# 07 — Firewall (N6)
 
 Zone-based encoding of `network/firewall-policy.md` on VyOS 1.4.4. Dual-stack.
 Cite: **N6.1**, **N6.2**.
@@ -368,7 +368,7 @@ scp vyos@88.200.24.237:/config/config.boot vyos/snapshot-config.boot
 #   NB: plain `curl` may return ::10 — IPv6 has no NAT, the DMZ GUA is global. Use -4 to exercise the SNAT path.
 # test on app-01     — `nc -zv -w3 <ws-01-lease-ip> 22`                — timeout (DMZ→INTERNAL blocked, logged)
 # test on app-01     — `nc -zv -w3 10.7.0.1 22`                        — timeout (DMZ→router SSH denied)
-# test on mon-01     — `snmpwalk -v2c -c kyber-ro 192.168.7.1 1.3.6.1.2.1.2.1.0` — returns ifNumber (N8)
+# test on mon     — `snmpwalk -v2c -c kyber-ro 192.168.7.1 1.3.6.1.2.1.2.1.0` — returns ifNumber (N8)
 #   NB: use the numeric OID; the `ifNumber.0` name needs IF-MIB installed on mon (snmp-mibs-downloader).
 # test on kyber-ipv6 — `curl -6 -s https://ifconfig.co`                — returns 2001:1470:fffd:9b::… (V6ONLY→WAN, NPTv6)
 #   NB: this is the NPTv6 EGRESS test (to the internet). The v6-only segment is isolated from DMZ by design,

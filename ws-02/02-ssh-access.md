@@ -44,7 +44,7 @@ Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias Ethernet0 |
 or from the router (it lists the client hostname against each lease):
 
 ```
-# on kyber-rtr-01, operational mode
+# on kyber-rtr, operational mode
 show dhcp server leases
 # look for the row whose hostname is kyber-ws-02 -> its IPv4
 ```
