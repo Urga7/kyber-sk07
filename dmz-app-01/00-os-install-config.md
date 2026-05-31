@@ -101,7 +101,7 @@ timedatectl show-timesync --property=ServerName    # -> 192.168.7.1
 ping -c2 192.168.7.1                       # gateway
 ping -c2 1.1.1.1                           # WAN
 ping6 -c2 2001:1470:fffd:99::1             # IPv6 gateway
-getent hosts kyber-ldap.kyber.local        # -> 2001:1470:fffd:99::30 / 192.168.7.30
+getent ahosts kyber-ldap.kyber.local       # both families -> 192.168.7.30 + 2001:1470:fffd:99::30
 ```
 
 > **DNS note — `.local` + systemd-resolved gotcha.** DHCP hands out `192.168.7.1` (VyOS)
