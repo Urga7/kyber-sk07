@@ -51,19 +51,12 @@ ipa user-add carol --first=Carol --last=Carter   --random
 ipa user-add dave  --first=Dave  --last=Davis    --random
 ```
 
-```
-alice random password: 5On/?BbUK,)D(l;+dCk-Xc
-bob random password: 3Ay.*_jjNk|%;.ZjcIOLou
-carol random password: 1Xs~9dnhoJ(@K>BL;fjZ~Y
-dave random password: 8Bd:.3(zbm@PeBpbWQ/)2~
-```
-
 Memberships per the plan (alice is a real admin via the built-in `admins`
 group; `ipausers` is the default "users" group):
 
 ```
 ipa group-add-member admins      --users=alice
-ipa group-add-member vpn-users   --users=alice,bob
+ipa group-add-member vpn-users   --users=alice --users=bob
 ipa group-add-member api-writers --users=carol
 ipa group-add-member ipausers    --users=dave
 ```
