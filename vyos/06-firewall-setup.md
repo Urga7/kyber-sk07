@@ -238,7 +238,7 @@ set firewall ipv4 name DMZ-LOCAL rule 22 description 'DHCPv4 renew'
 set firewall ipv4 name DMZ-LOCAL rule 22 protocol 'udp'
 set firewall ipv4 name DMZ-LOCAL rule 22 destination port '67'
 set firewall ipv4 name DMZ-LOCAL rule 22 action 'accept'
-set firewall ipv4 name DMZ-LOCAL rule 24 description 'SNMP from mon-01 only'
+set firewall ipv4 name DMZ-LOCAL rule 24 description 'SNMP from mon only'
 set firewall ipv4 name DMZ-LOCAL rule 24 protocol 'udp'
 set firewall ipv4 name DMZ-LOCAL rule 24 destination port '161'
 set firewall ipv4 name DMZ-LOCAL rule 24 source address '192.168.7.20'
@@ -262,7 +262,7 @@ set firewall ipv6 name DMZ-LOCAL6 rule 23 description 'DHCPv6'
 set firewall ipv6 name DMZ-LOCAL6 rule 23 protocol 'udp'
 set firewall ipv6 name DMZ-LOCAL6 rule 23 destination port '547'
 set firewall ipv6 name DMZ-LOCAL6 rule 23 action 'accept'
-set firewall ipv6 name DMZ-LOCAL6 rule 24 description 'SNMP from mon-01 only'
+set firewall ipv6 name DMZ-LOCAL6 rule 24 description 'SNMP from mon only'
 set firewall ipv6 name DMZ-LOCAL6 rule 24 protocol 'udp'
 set firewall ipv6 name DMZ-LOCAL6 rule 24 destination port '161'
 set firewall ipv6 name DMZ-LOCAL6 rule 24 source address '2001:1470:fffd:99::20'
@@ -369,7 +369,7 @@ scp vyos@88.200.24.237:/config/config.boot vyos/snapshot-config.boot
 # test on ws-01      — `nc -zv -w3 192.168.7.10 5432`                  — timeout (PostgreSQL blocked)
 # test on app-01     — `curl -s ifconfig.me`                           — 88.200.24.237 (DMZ→WAN)
 # test on app-01     — `nc -zv -w3 10.7.0.1 22`                        — timeout (DMZ→INTERNAL blocked, logged)
-# test on mon-01     — `snmpwalk -v2c -c kyber-ro 192.168.7.1 ifNumber.0` — returns a value (N8)
+# test on mon     — `snmpwalk -v2c -c kyber-ro 192.168.7.1 ifNumber.0` — returns a value (N8)
 # test on kyber-ipv6 — `curl -6 -sf -o /dev/null -w '%{http_code}\n' https://api.kyber.local` — 200 (NPTv6)
 ```
 

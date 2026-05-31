@@ -22,13 +22,10 @@ plan N3.2). Only IPv4 is registered now — these hosts have no DHCPv6
 reservation yet; add AAAA records when their v6 addresses are assigned (N3.4):
 
 ```
-ipa dnsrecord-add kyber.local kyber-app-01 --a-rec=192.168.7.10
-ipa dnsrecord-add kyber.local kyber-app-02 --a-rec=192.168.7.11
-ipa dnsrecord-add kyber.local kyber-mon --a-rec=192.168.7.20
+ipa dnsrecord-add kyber.local kyber-app-01 --a-rec=192.168.7.10 --aaaa-rec=2001:1470:fffd:99::10
+ipa dnsrecord-add kyber.local kyber-app-02 --a-rec=192.168.7.11 --aaaa-rec=2001:1470:fffd:99::11
+ipa dnsrecord-add kyber.local kyber-mon --a-rec=192.168.7.20 --aaaa-rec=2001:1470:fffd:99::20
 
-ipa dnsrecord-add kyber.local kyber-app-01 --aaaa-rec=2001:1470:fffd:99::10
-ipa dnsrecord-add kyber.local kyber-app-02 --aaaa-rec=2001:1470:fffd:99::11
-ipa dnsrecord-add kyber.local kyber-mon --aaaa-rec=2001:1470:fffd:99::20
 
 ```
 
