@@ -1,14 +1,23 @@
 snmp_exporter needs an SNMP agent to talk to. Expose SNMPv2c with a
-read-only community **restricted to mon's IP**.
+read-only community **restricted to mon's IP** (both stacks).
 
 ```
 set service snmp community kyber-ro authorization ro
 set service snmp community kyber-ro network '192.168.7.20/32'
+set service snmp community kyber-ro network '2001:1470:fffd:99::20/128'
 set service snmp listen-address 192.168.7.1
 set service snmp listen-address 2001:1470:fffd:99::1
 set service snmp contact 'sk07'
 set service snmp location 'kyber-lab'
 ```
+
+> The `network` restriction must list **both** mon's v4 and v6 source — the agent
+> listens on `…99::1` and the firewall (`DMZ-LOCAL6` rule 24) permits SNMP over v6,
+> so without the v6 `network` entry an IPv6 poll is allowed by the firewall but
+> rejected by snmpd. `network` is multi-valued, so the two lines coexist.
+>
+> SNMPv2c is acceptable here (source-restricted to mon, internal-only interfaces).
+> For stronger security, SNMPv3 authPriv is the optional upgrade (N8.1).
 
 `commit` + `save`. Then confirm `snmpd` actually came up and bound the DMZ addresses — a
 running service that isn't listening (or that never got committed) is the usual cause of a

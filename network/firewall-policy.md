@@ -159,8 +159,8 @@ Traffic from DMZ servers to the router itself.
 | 22 | UDP   | 68   | accept | DHCPv4 renew traffic (N3). |
 | 23 | UDP   | 547  | accept | DHCPv6 (N3). |
 | 24 | UDP   | 161  | accept | SNMP polling: `kyber-mon` (192.168.7.20 / 2001:1470:fffd:99::20) queries VyOS for interface counters and system metrics (N8, S5). **Source restricted to 192.168.7.20 and 2001:1470:fffd:99::20 only.** |
-| 25 | TCP   | 22   | accept | SSH management of the router from the DMZ (admin access). |
 | 26 | ICMPv4+ICMPv6 | echo-request | accept | Servers ping the gateway for diagnostics. |
+| — | TCP | 22 | **drop** (default) | SSH from the DMZ to the router is **not** permitted. The DMZ is the most exposed segment, so it must not be able to manage the router. Admin SSH reaches the router from INTERNAL (rule 20) and the VPN (N7) only. |
 | 999 | any  | any  | drop   | |
 
 ---

@@ -243,10 +243,8 @@ set firewall ipv4 name DMZ-LOCAL rule 24 protocol 'udp'
 set firewall ipv4 name DMZ-LOCAL rule 24 destination port '161'
 set firewall ipv4 name DMZ-LOCAL rule 24 source address '192.168.7.20'
 set firewall ipv4 name DMZ-LOCAL rule 24 action 'accept'
-set firewall ipv4 name DMZ-LOCAL rule 25 description 'SSH mgmt'
-set firewall ipv4 name DMZ-LOCAL rule 25 protocol 'tcp'
-set firewall ipv4 name DMZ-LOCAL rule 25 destination port '22'
-set firewall ipv4 name DMZ-LOCAL rule 25 action 'accept'
+# NOTE: no SSH (tcp/22) from DMZ to the router — DMZ servers must not manage
+# the router. Admin SSH to the router comes from INTERNAL (and VPN, N7) only.
 set firewall ipv4 name DMZ-LOCAL rule 26 protocol 'icmp'
 set firewall ipv4 name DMZ-LOCAL rule 26 icmp type-name 'echo-request'
 set firewall ipv4 name DMZ-LOCAL rule 26 action 'accept'
@@ -267,9 +265,7 @@ set firewall ipv6 name DMZ-LOCAL6 rule 24 protocol 'udp'
 set firewall ipv6 name DMZ-LOCAL6 rule 24 destination port '161'
 set firewall ipv6 name DMZ-LOCAL6 rule 24 source address '2001:1470:fffd:99::20'
 set firewall ipv6 name DMZ-LOCAL6 rule 24 action 'accept'
-set firewall ipv6 name DMZ-LOCAL6 rule 25 protocol 'tcp'
-set firewall ipv6 name DMZ-LOCAL6 rule 25 destination port '22'
-set firewall ipv6 name DMZ-LOCAL6 rule 25 action 'accept'
+# NOTE: no SSH (tcp/22) from DMZ to the router — see IPv4 note above.
 set firewall ipv6 name DMZ-LOCAL6 rule 26 protocol 'ipv6-icmp'
 set firewall ipv6 name DMZ-LOCAL6 rule 26 action 'accept'
 ```
@@ -364,13 +360,19 @@ scp vyos@88.200.24.237:/config/config.boot vyos/snapshot-config.boot
 ```
 # test on kyber-rtr  — `ping -c1 8.8.8.8`                              — 0% loss (LOCAL-OUT)
 # test on kyber-rtr  — `show firewall`                                 — all zones, default-action drop
-# test on external   — `nmap -Pn -p22,443,5432,9090 88.200.24.237`     — 443 open, 22 open (TEMP), rest filtered
+# test on external   — `nmap -Pn -p22,443,5432,9090 88.200.24.237`     — 22 open (TEMP), rest filtered
+#   NB: 443 is filtered until I1 adds the DNAT — we scan the router's WAN IP (LOCAL zone), which has no :443.
 # test on ws-01      — `curl -sf -o /dev/null -w '%{http_code}\n' https://api.kyber.local/customers` — 200
 # test on ws-01      — `nc -zv -w3 192.168.7.10 5432`                  — timeout (PostgreSQL blocked)
-# test on app-01     — `curl -s ifconfig.me`                           — 88.200.24.237 (DMZ→WAN)
-# test on app-01     — `nc -zv -w3 10.7.0.1 22`                        — timeout (DMZ→INTERNAL blocked, logged)
-# test on mon     — `snmpwalk -v2c -c kyber-ro 192.168.7.1 ifNumber.0` — returns a value (N8)
-# test on kyber-ipv6 — `curl -6 -sf -o /dev/null -w '%{http_code}\n' https://api.kyber.local` — 200 (NPTv6)
+# test on app-01     — `curl -4 -s ifconfig.me`                        — 88.200.24.237 (DMZ→WAN, v4 SNAT)
+#   NB: plain `curl` may return ::10 — IPv6 has no NAT, the DMZ GUA is global. Use -4 to exercise the SNAT path.
+# test on app-01     — `nc -zv -w3 <ws-01-lease-ip> 22`                — timeout (DMZ→INTERNAL blocked, logged)
+# test on app-01     — `nc -zv -w3 10.7.0.1 22`                        — timeout (DMZ→router SSH denied)
+# test on mon-01     — `snmpwalk -v2c -c kyber-ro 192.168.7.1 1.3.6.1.2.1.2.1.0` — returns ifNumber (N8)
+#   NB: use the numeric OID; the `ifNumber.0` name needs IF-MIB installed on mon (snmp-mibs-downloader).
+# test on kyber-ipv6 — `curl -6 -s https://ifconfig.co`                — returns 2001:1470:fffd:9b::… (V6ONLY→WAN, NPTv6)
+#   NB: this is the NPTv6 EGRESS test (to the internet). The v6-only segment is isolated from DMZ by design,
+#   so it cannot — and must not — reach the internal api.kyber.local (V6ONLY→DMZ falls through to drop).
 ```
 
 ---

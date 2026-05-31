@@ -1,3 +1,546 @@
+firewall {
+    global-options {
+        state-policy {
+            established {
+                action "accept"
+            }
+            invalid {
+                action "drop"
+            }
+            related {
+                action "accept"
+            }
+        }
+    }
+    ipv4 {
+        name DMZ-INTERNAL {
+            default-action "drop"
+            default-log
+        }
+        name DMZ-LOCAL {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                description "DNS forwarder"
+                destination {
+                    port "53"
+                }
+                protocol "tcp_udp"
+            }
+            rule 21 {
+                action "accept"
+                description "NTP relay"
+                destination {
+                    port "123"
+                }
+                protocol "udp"
+            }
+            rule 22 {
+                action "accept"
+                description "DHCPv4 renew"
+                destination {
+                    port "67"
+                }
+                protocol "udp"
+            }
+            rule 24 {
+                action "accept"
+                description "SNMP from mon-01 only"
+                destination {
+                    port "161"
+                }
+                protocol "udp"
+                source {
+                    address "192.168.7.20"
+                }
+            }
+            rule 26 {
+                action "accept"
+                icmp {
+                    type-name "echo-request"
+                }
+                protocol "icmp"
+            }
+        }
+        name DMZ-WAN {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                description "HTTP (apt)"
+                destination {
+                    port "80"
+                }
+                protocol "tcp"
+            }
+            rule 21 {
+                action "accept"
+                description "HTTPS (apt/pip/CRL)"
+                destination {
+                    port "443"
+                }
+                protocol "tcp"
+            }
+            rule 22 {
+                action "accept"
+                description "NTP fallback"
+                destination {
+                    port "123"
+                }
+                protocol "udp"
+            }
+            rule 23 {
+                action "accept"
+                icmp {
+                    type-name "echo-request"
+                }
+                protocol "icmp"
+            }
+        }
+        name INTERNAL-DMZ {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                description "HTTPS (REST API, Grafana)"
+                destination {
+                    port "443"
+                }
+                protocol "tcp"
+            }
+            rule 21 {
+                action "accept"
+                description "SSH admin to DMZ"
+                destination {
+                    port "22"
+                }
+                protocol "tcp"
+            }
+            rule 30 {
+                action "accept"
+                description "DNS to FreeIPA"
+                destination {
+                    port "53"
+                }
+                protocol "tcp_udp"
+            }
+            rule 31 {
+                action "accept"
+                description "LDAPS"
+                destination {
+                    port "636"
+                }
+                protocol "tcp"
+            }
+        }
+        name INTERNAL-LOCAL {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                description "SSH mgmt"
+                destination {
+                    port "22"
+                }
+                protocol "tcp"
+            }
+            rule 30 {
+                action "accept"
+                description "DNS forwarder"
+                destination {
+                    port "53"
+                }
+                protocol "tcp_udp"
+            }
+            rule 31 {
+                action "accept"
+                description "NTP relay"
+                destination {
+                    port "123"
+                }
+                protocol "udp"
+            }
+            rule 32 {
+                action "accept"
+                description "DHCPv4"
+                destination {
+                    port "67"
+                }
+                protocol "udp"
+            }
+            rule 33 {
+                action "accept"
+                description "ping gateway"
+                icmp {
+                    type-name "echo-request"
+                }
+                protocol "icmp"
+            }
+        }
+        name INTERNAL-WAN {
+            default-action "accept"
+        }
+        name LOCAL-OUT {
+            default-action "accept"
+        }
+        name WAN-DMZ {
+            default-action "drop"
+            default-log
+            rule 20 {
+                action "accept"
+                description "HTTPS / REST API"
+                destination {
+                    port "443"
+                }
+                protocol "tcp"
+            }
+        }
+        name WAN-INTERNAL {
+            default-action "drop"
+            default-log
+        }
+        name WAN-LOCAL {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                icmp {
+                    type-name "echo-request"
+                }
+                protocol "icmp"
+            }
+            rule 30 {
+                action "accept"
+                description "WireGuard endpoint (N7)"
+                destination {
+                    port "51820"
+                }
+                protocol "udp"
+            }
+            rule 40 {
+                action "accept"
+                description "TEMP admin SSH - REMOVE after N7"
+                destination {
+                    port "22"
+                }
+                protocol "tcp"
+            }
+        }
+    }
+    ipv6 {
+        name DMZ-INTERNAL6 {
+            default-action "drop"
+            default-log
+        }
+        name DMZ-LOCAL6 {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                destination {
+                    port "53"
+                }
+                protocol "tcp_udp"
+            }
+            rule 21 {
+                action "accept"
+                destination {
+                    port "123"
+                }
+                protocol "udp"
+            }
+            rule 23 {
+                action "accept"
+                description "DHCPv6"
+                destination {
+                    port "547"
+                }
+                protocol "udp"
+            }
+            rule 24 {
+                action "accept"
+                description "SNMP from mon-01 only"
+                destination {
+                    port "161"
+                }
+                protocol "udp"
+                source {
+                    address "2001:1470:fffd:99::20"
+                }
+            }
+            rule 26 {
+                action "accept"
+                protocol "ipv6-icmp"
+            }
+        }
+        name DMZ-WAN6 {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                destination {
+                    port "80"
+                }
+                protocol "tcp"
+            }
+            rule 21 {
+                action "accept"
+                destination {
+                    port "443"
+                }
+                protocol "tcp"
+            }
+            rule 22 {
+                action "accept"
+                destination {
+                    port "123"
+                }
+                protocol "udp"
+            }
+            rule 23 {
+                action "accept"
+                protocol "ipv6-icmp"
+            }
+        }
+        name INTERNAL-DMZ6 {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                destination {
+                    port "443"
+                }
+                protocol "tcp"
+            }
+            rule 21 {
+                action "accept"
+                destination {
+                    port "22"
+                }
+                protocol "tcp"
+            }
+            rule 30 {
+                action "accept"
+                destination {
+                    port "53"
+                }
+                protocol "tcp_udp"
+            }
+            rule 31 {
+                action "accept"
+                destination {
+                    port "636"
+                }
+                protocol "tcp"
+            }
+        }
+        name INTERNAL-LOCAL6 {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                destination {
+                    port "22"
+                }
+                protocol "tcp"
+            }
+            rule 30 {
+                action "accept"
+                destination {
+                    port "53"
+                }
+                protocol "tcp_udp"
+            }
+            rule 31 {
+                action "accept"
+                destination {
+                    port "123"
+                }
+                protocol "udp"
+            }
+            rule 32 {
+                action "accept"
+                description "DHCPv6"
+                destination {
+                    port "547"
+                }
+                protocol "udp"
+            }
+            rule 33 {
+                action "accept"
+                description "NDP + ping"
+                protocol "ipv6-icmp"
+            }
+        }
+        name INTERNAL-WAN6 {
+            default-action "accept"
+        }
+        name LOCAL-OUT6 {
+            default-action "accept"
+        }
+        name V6ONLY-LOCAL6 {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                destination {
+                    port "53"
+                }
+                protocol "tcp_udp"
+            }
+            rule 21 {
+                action "accept"
+                destination {
+                    port "123"
+                }
+                protocol "udp"
+            }
+            rule 22 {
+                action "accept"
+                protocol "ipv6-icmp"
+            }
+        }
+        name V6ONLY-WAN6 {
+            default-action "accept"
+        }
+        name WAN-DMZ6 {
+            default-action "drop"
+            default-log
+            rule 20 {
+                action "accept"
+                destination {
+                    port "443"
+                }
+                protocol "tcp"
+            }
+        }
+        name WAN-INTERNAL6 {
+            default-action "drop"
+            default-log
+        }
+        name WAN-LOCAL6 {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                description "icmpv6 (echo + NDP)"
+                protocol "ipv6-icmp"
+            }
+            rule 30 {
+                action "accept"
+                destination {
+                    port "51820"
+                }
+                protocol "udp"
+            }
+            rule 40 {
+                action "accept"
+                description "TEMP admin SSH - REMOVE after N7"
+                destination {
+                    port "22"
+                }
+                protocol "tcp"
+            }
+        }
+    }
+    zone DMZ {
+        default-action "drop"
+        from INTERNAL {
+            firewall {
+                ipv6-name "INTERNAL-DMZ6"
+                name "INTERNAL-DMZ"
+            }
+        }
+        from LOCAL {
+            firewall {
+                ipv6-name "LOCAL-OUT6"
+                name "LOCAL-OUT"
+            }
+        }
+        from WAN {
+            firewall {
+                ipv6-name "WAN-DMZ6"
+                name "WAN-DMZ"
+            }
+        }
+        interface "eth2"
+    }
+    zone INTERNAL {
+        default-action "drop"
+        from DMZ {
+            firewall {
+                ipv6-name "DMZ-INTERNAL6"
+                name "DMZ-INTERNAL"
+            }
+        }
+        from LOCAL {
+            firewall {
+                ipv6-name "LOCAL-OUT6"
+                name "LOCAL-OUT"
+            }
+        }
+        from WAN {
+            firewall {
+                ipv6-name "WAN-INTERNAL6"
+                name "WAN-INTERNAL"
+            }
+        }
+        interface "eth1"
+    }
+    zone LOCAL {
+        default-action "drop"
+        from DMZ {
+            firewall {
+                ipv6-name "DMZ-LOCAL6"
+                name "DMZ-LOCAL"
+            }
+        }
+        from INTERNAL {
+            firewall {
+                ipv6-name "INTERNAL-LOCAL6"
+                name "INTERNAL-LOCAL"
+            }
+        }
+        from V6ONLY {
+            firewall {
+                ipv6-name "V6ONLY-LOCAL6"
+            }
+        }
+        from WAN {
+            firewall {
+                ipv6-name "WAN-LOCAL6"
+                name "WAN-LOCAL"
+            }
+        }
+        local-zone
+    }
+    zone V6ONLY {
+        default-action "drop"
+        from LOCAL {
+            firewall {
+                ipv6-name "LOCAL-OUT6"
+            }
+        }
+        interface "eth3"
+    }
+    zone WAN {
+        default-action "drop"
+        from DMZ {
+            firewall {
+                ipv6-name "DMZ-WAN6"
+                name "DMZ-WAN"
+            }
+        }
+        from INTERNAL {
+            firewall {
+                ipv6-name "INTERNAL-WAN6"
+                name "INTERNAL-WAN"
+            }
+        }
+        from LOCAL {
+            firewall {
+                ipv6-name "LOCAL-OUT6"
+                name "LOCAL-OUT"
+            }
+        }
+        from V6ONLY {
+            firewall {
+                ipv6-name "V6ONLY-WAN6"
+            }
+        }
+        interface "eth0"
+    }
+}
 interfaces {
     ethernet eth0 {
         address "88.200.24.237/25"
@@ -101,13 +644,18 @@ service {
             subnet 192.168.7.0/24 {
                 default-router "192.168.7.1"
                 name-server "192.168.7.1"
+                ntp-server "192.168.7.1"
                 static-mapping app-01 {
                     ip-address "192.168.7.10"
-                    mac-address "00:0C:29:AA:AA:10"
+                    mac-address "00:0c:29:a9:04:71"
                 }
                 static-mapping ldap {
                     ip-address "192.168.7.30"
                     mac-address "00:0C:29:82:FB:06"
+                }
+                static-mapping mon-01 {
+                    ip-address "192.168.7.20"
+                    mac-address "00:0C:29:1D:A9:6E"
                 }
             }
         }
@@ -116,6 +664,7 @@ service {
                 default-router "10.7.0.1"
                 domain-name "kyber.local"
                 name-server "10.7.0.1"
+                ntp-server "10.7.0.1"
                 range 0 {
                     start "10.7.0.100"
                     stop "10.7.0.200"
@@ -128,13 +677,18 @@ service {
             subnet 2001:1470:fffd:99::/64 {
                 domain-search "kyber.local"
                 name-server "2001:1470:fffd:99::1"
+                sntp-server "2001:1470:fffd:99::1"
                 static-mapping app-01 {
-                    identifier "00:03:00:01:00:0C:29:AA:AA:10"
+                    identifier "00:03:00:01:00:0c:29:a9:04:71"
                     ipv6-address "2001:1470:fffd:99::10"
                 }
                 static-mapping ldap {
                     identifier "00:03:00:01:00:0C:29:82:FB:06"
                     ipv6-address "2001:1470:fffd:99::30"
+                }
+                static-mapping mon-01 {
+                    identifier "00:03:00:01:00:0C:29:1D:A9:6E"
+                    ipv6-address "2001:1470:fffd:99::20"
                 }
             }
         }
@@ -147,6 +701,12 @@ service {
                 }
                 domain-search "kyber.local"
                 name-server "2001:1470:fffd:9a::1"
+                sntp-server "2001:1470:fffd:9a::1"
+            }
+        }
+        shared-network-name V6ONLY {
+            subnet fd07:1:1:1::/64 {
+                sntp-server "fd07:1:1:1::1"
             }
         }
     }
@@ -155,7 +715,8 @@ service {
             allow-from "10.7.0.0/24"
             allow-from "192.168.7.0/24"
             allow-from "fd07:1:1:1::/64"
-            allow-from "2001:1470:fffd:98::/62"
+            allow-from "2001:1470:fffd:99::/64"
+            allow-from "2001:1470:fffd:9a::/64"
             domain 7.168.192.in-addr.arpa {
                 name-server 192.168.7.30 {
                 }
@@ -198,6 +759,7 @@ service {
             address "2001:1470:fffd:99::/64"
             address "192.168.7.0/24"
             address "10.7.0.0/24"
+            address "fd07:1:1:1::/64"
         }
         server 1.europe.pool.ntp.org {
         }
@@ -225,9 +787,24 @@ service {
         }
         interface eth3 {
             default-preference "medium"
+            dnssl "kyber.local"
+            name-server "fd07:1:1:1::1"
+            other-config-flag
             prefix fd07:1:1:1::/64 {
             }
         }
+    }
+    snmp {
+        community kyber-ro {
+            authorization "ro"
+            network "192.168.7.20/32"
+        }
+        contact "sk07"
+        listen-address 192.168.7.1 {
+        }
+        listen-address 2001:1470:fffd:99::1 {
+        }
+        location "kyber-lab"
     }
     ssh {
         disable-password-authentication
