@@ -1,0 +1,4 @@
+# Shell scripts must keep LF endings — they run in WSL / on the VyOS box / Linux hosts.
+# Without this, editing on Windows can save CRLF and the shebang breaks with
+# `env: bash\r: No such file or directory`.
+*.sh text eol=lf

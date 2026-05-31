@@ -89,3 +89,32 @@ PGPASSWORD=CHANGE_ME psql -h 127.0.0.1 -U kyber_api -d kyber \
 
 Both should succeed over `127.0.0.1` with the `kyber_api` credentials — that is exactly
 the connection string the API will use in `03-rest-api.md`.
+
+## 6. Expose the primary to app-02 (HA — S3.7)
+
+The second API instance (`kyber-app-02`, see `04-app-02-and-ha.md`) connects to **this**
+primary over the DMZ — a **shared single primary**, no replica. Have PostgreSQL listen on the
+DMZ address and authorize only app-02's `kyber_api` connections, over TLS:
+
+```
+# /etc/postgresql/16/main/postgresql.conf
+listen_addresses = 'localhost,192.168.7.10,2001:1470:fffd:99::10'
+
+# /etc/postgresql/16/main/pg_hba.conf  (append; app-02 only)
+hostssl  kyber  kyber_api  192.168.7.11/32              scram-sha-256
+hostssl  kyber  kyber_api  2001:1470:fffd:99::11/128    scram-sha-256
+```
+
+```
+sudo systemctl restart postgresql
+```
+
+app-01's own API keeps connecting over `127.0.0.1` (unchanged); only app-02 uses
+`192.168.7.10`. `hostssl` forces TLS — PostgreSQL 16 on Ubuntu enables `ssl = on` with a
+snakeoil cert by default, which is adequate for this intra-DMZ link (encrypted, and the source
+is pinned to app-02's address). app-02→app-01:5432 is intra-DMZ (L2), so no `kyber-rtr`
+firewall rule is needed.
+
+> Single primary = **accepted SPOF** (losing app-01 loses the DB). The deferred hardening
+> options — streaming replication + manual promote, or automatic failover via Patroni on the
+> S4 etcd cluster — are noted in `04-app-02-and-ha.md`.

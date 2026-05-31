@@ -12,11 +12,11 @@ From the local machine — install your public key via the router jump-host:
 
 ```
 $cmd = 'mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys'
-Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub | ssh -J vyos@88.200.24.237 kyber@192.168.7.10 $cmd
+Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub | ssh -J vyos@10.7.99.1 kyber@192.168.7.10 $cmd
 ```
 
 Then test the connection:
 
 ```
-ssh -J vyos@88.200.24.237 kyber@192.168.7.10
+ssh -J vyos@10.7.99.1 kyber@192.168.7.10
 ```

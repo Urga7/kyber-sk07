@@ -24,8 +24,8 @@ Create the dependency manifest and the venv. The manifest is version-controlled 
 into `kyber`'s home, then move it into place):
 
 ```
-scp -J vyos@88.200.24.237 requirements.txt kyber@192.168.7.10:~/
-ssh -J vyos@88.200.24.237 kyber@192.168.7.10 \
+scp -J vyos@10.7.99.1 requirements.txt kyber@192.168.7.11:~/
+ssh -J vyos@10.7.99.1 kyber@192.168.7.11 \
   'sudo install -o kyberapi -g kyberapi -m 644 ~/requirements.txt /opt/kyber-api/requirements.txt'
 ```
 
@@ -109,7 +109,7 @@ User=kyberapi
 Group=kyberapi
 WorkingDirectory=/opt/kyber-api
 EnvironmentFile=/etc/kyber-api.env
-ExecStart=/opt/kyber-api/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+ExecStart=/opt/kyber-api/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 Restart=on-failure
 
 [Install]
@@ -122,7 +122,10 @@ sudo systemctl status kyber-api --no-pager
 curl -s -H 'Accept: application/json' http://127.0.0.1:8000/customers   # JSON from the app directly
 ```
 
-uvicorn binds `127.0.0.1` only — nginx is the sole public listener and terminates TLS.
+uvicorn binds `0.0.0.0:8000` so the HA peer's nginx can reach this backend over the DMZ
+(`04-app-02-and-ha.md`); it's plain HTTP but **DMZ-internal only** — WAN→DMZ permits just
+`:443` and the host runs no local firewall. nginx terminates TLS and is the only WAN-facing
+listener.
 
 ## 4. FreeIPA enrollment + TLS certificate (S3.5)
 
@@ -219,6 +222,10 @@ sudo nginx -t && sudo systemctl reload nginx
 
 The dual `listen`/`listen [::]` pair makes the API reachable at both `192.168.7.10` and
 `2001:1470:fffd:99::10`, satisfying the IPv6 requirement (S3.9).
+
+> **HA:** with app-02, this single `proxy_pass` becomes an `upstream` across both backends
+> (applied identically on both nodes), fronted by a `keepalived` VIP — see
+> [`04-app-02-and-ha.md`](04-app-02-and-ha.md) §5–§7.
 
 > nginx 1.24 (Ubuntu 24.04) uses the `listen … ssl http2;` form above. On nginx ≥1.25.1
 > the preferred form is `listen 443 ssl;` + a separate `http2 on;` directive.

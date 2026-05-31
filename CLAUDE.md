@@ -98,7 +98,7 @@ Derived from the runbooks + the live `vyos/snapshot-config.boot`.
 
 **Pending / not built:**
 - **N7 VPN (WireGuard)** — not deployed. A **temporary `WAN→LOCAL` SSH accept (rule 40)** is live in the firewall to avoid lockout and **must be deleted once N7 is up** (router SSH then becomes VPN-only). The `udp/51820` WireGuard accept is already pre-staged.
-- **S3.7 HA** — `kyber-app-02`, the nginx load-balancer VIP `192.168.7.100`, and PostgreSQL replication don't exist yet; `api.kyber.local` resolves straight to app-01.
+- **S3.7 HA** — designed in `dmz-app-01/04-app-02-and-ha.md` (keepalived VIP `192.168.7.100`/`::100` + nginx **active-active** across app-01/app-02, **shared single PostgreSQL primary** on app-01 — accepted SPOF). **app-02 not built yet**; until executed, `api.kyber.local` still resolves to app-01 `.10`/`::10`.
 - **S4 etcd** (3-node RAFT) — not started.
 - **I1 DNAT** (`88.200.24.237:443` → VIP) — pending HA; the `WAN→DMZ tcp/443` accept is already in the firewall.
 - Optional: NetFlow/ntopng (N9/S6), Suricata IDS (S7), HTTP/3 (S3.10), GraphQL (S3.11).

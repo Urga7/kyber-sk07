@@ -21,8 +21,8 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Jump   = 'vyos@88.200.24.237',
-    [string]$Target = 'kyber@192.168.7.10'
+    [string]$Jump   = 'vyos@10.7.99.1',
+    [string]$Target = 'kyber@192.168.7.11'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -51,6 +51,11 @@ sudo chown -R kyberapi:kyberapi /opt/kyber-api/app
 sudo systemctl restart kyber-api
 sudo systemctl --no-pager --lines=0 status kyber-api
 '@
+
+# Strip CR so the block runs cleanly on the remote bash even when this .ps1 is saved with
+# Windows CRLF endings — otherwise the remote shell sees `set -e\r`, `kyber-api\r.service`,
+# `/opt/kyber-api/app\r`, etc. and every line fails.
+$remote = $remote.Replace("`r", "")
 
 ssh -t -J $Jump $Target $remote
 if ($LASTEXITCODE -ne 0) { throw "Remote install/restart failed (exit $LASTEXITCODE)" }

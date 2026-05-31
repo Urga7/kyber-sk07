@@ -18,6 +18,8 @@
 - `set service dhcp-server shared-network-name DMZ subnet 192.168.7.0/24 static-mapping app-01 mac-address '00:0C:29:A9:04:71'`
 - `set service dhcp-server shared-network-name DMZ subnet 192.168.7.0/24 static-mapping mon ip-address '192.168.7.20'`
 - `set service dhcp-server shared-network-name DMZ subnet 192.168.7.0/24 static-mapping mon mac-address '00:0C:29:1D:A9:6E'`
+- `set service dhcp-server shared-network-name DMZ subnet 192.168.7.0/24 static-mapping app-02 ip-address '192.168.7.11'`
+- `set service dhcp-server shared-network-name DMZ subnet 192.168.7.0/24 static-mapping app-02 mac-address '00:0C:29:E3:A7:80'`
 - `commit`
 - `save`
 
@@ -43,6 +45,8 @@
 - `set service dhcpv6-server shared-network-name DMZ6 subnet 2001:1470:fffd:99::/64 static-mapping app-01 identifier '00:03:00:01:00:0C:29:A9:04:71'`
 - `set service dhcpv6-server shared-network-name DMZ6 subnet 2001:1470:fffd:99::/64 static-mapping mon ipv6-address '2001:1470:fffd:99::20'`
 - `set service dhcpv6-server shared-network-name DMZ6 subnet 2001:1470:fffd:99::/64 static-mapping mon identifier '00:03:00:01:00:0C:29:1D:A9:6E'`
+- `set service dhcpv6-server shared-network-name DMZ6 subnet 2001:1470:fffd:99::/64 static-mapping app-02 ipv6-address '2001:1470:fffd:99::11'`
+- `set service dhcpv6-server shared-network-name DMZ6 subnet 2001:1470:fffd:99::/64 static-mapping app-02 identifier '00:03:00:01:00:0C:29:E3:A7:80'`
 - `set service router-advert interface eth2 managed-flag`
 - `set service router-advert interface eth2 other-config-flag`
 - `set service router-advert interface eth2 prefix 2001:1470:fffd:99::/64`

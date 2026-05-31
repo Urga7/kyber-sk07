@@ -15,6 +15,7 @@ Build order — the numbered runbooks in this directory:
 | 01 | `01-enable-ssh-through-rtr.md` | SSH key access via the VyOS jump-host |
 | 02 | `02-postgresql.md` | PostgreSQL + `customers`/`orders` schema |
 | 03 | `03-rest-api.md` | FastAPI app, FreeIPA TLS cert, systemd, nginx |
+| 04 | `04-app-02-and-ha.md` | Second instance (app-02) + keepalived VIP + nginx active-active LB (S3.7) |
 
 ## Data model (S3.1)
 
@@ -71,13 +72,14 @@ certificate for `api.kyber.local` is issued by the **FreeIPA CA** via `certmonge
 (auto-renewing, reloads nginx on renewal) — a real CA-signed cert, not throwaway
 self-signed. nginx listens on `443 ssl http2` on both IPv4 and IPv6.
 
-## High availability (S3.7 — planned, not in these runbooks)
+## High availability (S3.7 — see `04-app-02-and-ha.md`)
 
-`api.kyber.local` currently resolves directly to app-01 (`.10` / `::10`). HA adds a
-second instance on `sk07-app-02` (`.11`) and a load-balancer VIP `192.168.7.100`; the
-DNS `api` record and the external DNAT (I1) then point at the VIP. The FastAPI app and
-schema here are deployed identically on app-02, with PostgreSQL streaming replication
-app-01 → app-02.
+A second instance runs on `kyber-app-02` (`.11` / `::11`) behind a `keepalived` virtual IP
+**`192.168.7.100` / `2001:1470:fffd:99::100`**, which `api.kyber.local` resolves to. The
+VIP-holder's nginx terminates TLS and load-balances **active-active** across both uvicorn
+backends (`upstream`); killing one instance keeps the service up (S3.12). Both API instances
+share a **single PostgreSQL primary on app-01** (no replica — an accepted SPOF for now). This
+is internal/DMZ-only at present; the external DNAT (I1, `88.200.24.237:443` → VIP) is deferred.
 
 ## Config provenance
 

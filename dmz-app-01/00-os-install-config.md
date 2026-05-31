@@ -66,7 +66,7 @@ ip -br addr show ens160     # expect 192.168.7.10 + 2001:1470:fffd:99::10
 > CONF
 > sudo systemctl restart systemd-networkd
 > sudo netplan apply
-> ip -6 addr show ens160     # 2001:1470:fffd:99::10/128 (global) now present
+> ip -6 addr show ens160     # 2001:1470:fffd:99::10/128 (or 2001:1470:fffd:99::10/128 for app-02)
 > ```
 >
 > The DHCPv6-assigned global address is a `/128` (normal for stateful DHCPv6 — the on-link
@@ -74,7 +74,8 @@ ip -br addr show ens160     # expect 192.168.7.10 + 2001:1470:fffd:99::10
 > host** (app-02, mon); `kyber-ldap` does the equivalent on NetworkManager via
 > `ipv6.dhcp-duid` (see `dmz-ldap/03-dhcpv6-prep.md`), not systemd-networkd.
 
-- Hostname (installer "Your server's name"): `kyber-app-01`
+- Hostname: `kyber-app-01` (or `kyber-app-02`)
+`hostnamectl set-hostname kyber-app-01`
 
 ## 3. First boot
 
