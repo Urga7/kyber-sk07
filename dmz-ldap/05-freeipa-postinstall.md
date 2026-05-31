@@ -80,7 +80,7 @@ sudo cp /etc/ipa/ca.crt /tmp/kyber-ipa-ca.crt
 ```
 
 Copy `kyber-ipa-ca.crt` off the VM (e.g. `scp` via the jump host) and commit it
-to the repo under `services/ldap/` so app-01/app-02/mon-01 can trust it.
+to the repo under `services/ldap/` so app-01/app-02/mon can trust it.
 
 ## 6. Test plan (S1.6 acceptance)
 

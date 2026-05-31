@@ -71,7 +71,7 @@ ip -br addr show ens160     # expect 192.168.7.10 + 2001:1470:fffd:99::10
 >
 > The DHCPv6-assigned global address is a `/128` (normal for stateful DHCPv6 — the on-link
 > `/64` comes from the router advertisement). This step applies to **every dual-stack DMZ
-> host** (app-02, mon-01); `kyber-ldap` escaped it only because it had IPv6 disabled.
+> host** (app-02, mon); `kyber-ldap` escaped it only because it had IPv6 disabled.
 
 - Hostname (installer "Your server's name"): `kyber-app-01`
 
@@ -113,7 +113,7 @@ getent hosts kyber-ldap.kyber.local        # -> 2001:1470:fffd:99::30 / 192.168.
 > `nameservers.search: [kyber.local]` line in §2 fixes this by registering `kyber.local`
 > as a **unicast routing domain** on the link; verify with `resolvectl status ens160`
 > showing `DNS Domain: kyber.local`. This applies to every Ubuntu host on `kyber.local`
-> (app-02, mon-01, ws-01).
+> (app-02, mon, ws-01).
 >
 > **If a `.local` name still won't resolve, check the FreeIPA host's firewall.**
 > `kyber-ldap`'s firewalld must have the `dns` service (53/tcp+udp) open, plus the
