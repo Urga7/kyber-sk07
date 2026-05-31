@@ -394,4 +394,6 @@ Use this checklist to verify you've covered every requirement from the original 
 ## 6. Working Agreement
 
 - All work committed to GitHub. PRs reviewed by the other person before merging.
-- VyOS changes: every `commit; save` is followed by copying `/config/config.boot` from the router to `vyos/snapshot-config.boot` (single latest snapshot, overwritten in place).
+- VyOS changes: every `commit; save` is followed by refreshing `vyos/snapshot-config.boot` (single latest snapshot, overwritten in place) by running **`vyos/update-snapshot.sh`** — which fetches `/config/config.boot` and **redacts secrets** (PKI private keys, password hashes, pre-shared secrets) before writing. **Never commit a raw `config.boot`** — it contains cleartext private keys.
+- Service VM configs: live in `/etc/…` on the box, but a copy goes to `/services/<name>/` in the repo on every meaningful change.
+- Disagreements on scope or technical choices recorded in a `/decisions.md` with date and rationale.

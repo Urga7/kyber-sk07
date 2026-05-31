@@ -1,0 +1,27 @@
+# openvpn-auth-ldap plugin config — TEMPLATE (N7.4)
+# The REAL file lives on kyber-rtr at /config/auth/ldap-auth.config and holds the bind
+# password, so it is NEVER committed. This template documents the format. See runbook
+# vyos/08-openvpn-vpn.md §2.
+
+<LDAP>
+  # The user's real IPA password transits this bind, so TLS is mandatory. Use STARTTLS:
+  # ldap:// + TLSEnable yes (upgrade on 389). Do NOT pair ldaps:// (implicit TLS/636) WITH
+  # TLSEnable yes — that makes the plugin attempt STARTTLS over an SSL socket and fail with
+  # "Unable to enable STARTTLS: Can't contact LDAP server".
+  URL             ldap://kyber-ldap.kyber.local
+  # Low-privilege FreeIPA *system account*, NOT admin (created in 08 §1).
+  BindDN          uid=vpn-bind,cn=sysaccounts,cn=etc,dc=kyber,dc=local
+  Password        <THE-BIND-PASSWORD>
+  Timeout         15
+  TLSEnable       yes
+  TLSCACertFile   /config/auth/kyber-ipa-ca.crt
+  FollowReferrals no
+</LDAP>
+
+<Authorization>
+  BaseDN          "cn=users,cn=accounts,dc=kyber,dc=local"
+  # %u = the username the client typed. The memberOf clause enforces vpn-users membership
+  # LIVE at connect time — a user removed from the group (or disabled) is rejected instantly.
+  SearchFilter    "(&(uid=%u)(memberOf=cn=vpn-users,cn=groups,cn=accounts,dc=kyber,dc=local))"
+  RequireGroup    false
+</Authorization>

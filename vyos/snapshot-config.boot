@@ -180,6 +180,87 @@ firewall {
         name LOCAL-OUT {
             default-action "accept"
         }
+        name VPN-DMZ {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                description "HTTPS (REST API, Grafana)"
+                destination {
+                    port "443"
+                }
+                protocol "tcp"
+            }
+            rule 21 {
+                action "accept"
+                description "SSH to DMZ servers"
+                destination {
+                    port "22"
+                }
+                protocol "tcp"
+            }
+            rule 22 {
+                action "accept"
+                description "LDAPS"
+                destination {
+                    port "636"
+                }
+                protocol "tcp"
+            }
+        }
+        name VPN-INTERNAL {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                description "SSH to internal hosts"
+                destination {
+                    port "22"
+                }
+                protocol "tcp"
+            }
+            rule 21 {
+                action "accept"
+                description "RDP to ws-02"
+                destination {
+                    port "3389"
+                }
+                protocol "tcp"
+            }
+            rule 22 {
+                action "accept"
+                description "ping diag"
+                icmp {
+                    type-name "echo-request"
+                }
+                protocol "icmp"
+            }
+        }
+        name VPN-LOCAL {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                description "SSH mgmt"
+                destination {
+                    port "22"
+                }
+                protocol "tcp"
+            }
+            rule 30 {
+                action "accept"
+                description "DNS"
+                destination {
+                    port "53"
+                }
+                protocol "tcp_udp"
+            }
+            rule 31 {
+                action "accept"
+                description "NTP"
+                destination {
+                    port "123"
+                }
+                protocol "udp"
+            }
+        }
         name WAN-DMZ {
             default-action "drop"
             default-log
@@ -207,19 +288,11 @@ firewall {
             }
             rule 30 {
                 action "accept"
-                description "WireGuard endpoint (N7)"
+                description "OpenVPN endpoint (N7)"
                 destination {
-                    port "51820"
+                    port "1194"
                 }
                 protocol "udp"
-            }
-            rule 40 {
-                action "accept"
-                description "TEMP admin SSH - REMOVE after N7"
-                destination {
-                    port "22"
-                }
-                protocol "tcp"
             }
         }
     }
@@ -394,6 +467,75 @@ firewall {
         name V6ONLY-WAN6 {
             default-action "accept"
         }
+        name VPN-DMZ6 {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                destination {
+                    port "443"
+                }
+                protocol "tcp"
+            }
+            rule 21 {
+                action "accept"
+                destination {
+                    port "22"
+                }
+                protocol "tcp"
+            }
+            rule 22 {
+                action "accept"
+                destination {
+                    port "636"
+                }
+                protocol "tcp"
+            }
+        }
+        name VPN-INTERNAL6 {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                destination {
+                    port "22"
+                }
+                protocol "tcp"
+            }
+            rule 21 {
+                action "accept"
+                destination {
+                    port "3389"
+                }
+                protocol "tcp"
+            }
+            rule 22 {
+                action "accept"
+                protocol "ipv6-icmp"
+            }
+        }
+        name VPN-LOCAL6 {
+            default-action "drop"
+            rule 20 {
+                action "accept"
+                destination {
+                    port "22"
+                }
+                protocol "tcp"
+            }
+            rule 30 {
+                action "accept"
+                destination {
+                    port "53"
+                }
+                protocol "tcp_udp"
+            }
+            rule 31 {
+                action "accept"
+                destination {
+                    port "123"
+                }
+                protocol "udp"
+            }
+        }
         name WAN-DMZ6 {
             default-action "drop"
             default-log
@@ -418,18 +560,11 @@ firewall {
             }
             rule 30 {
                 action "accept"
+                description "OpenVPN endpoint"
                 destination {
-                    port "51820"
+                    port "1194"
                 }
                 protocol "udp"
-            }
-            rule 40 {
-                action "accept"
-                description "TEMP admin SSH - REMOVE after N7"
-                destination {
-                    port "22"
-                }
-                protocol "tcp"
             }
         }
     }
@@ -445,6 +580,12 @@ firewall {
             firewall {
                 ipv6-name "LOCAL-OUT6"
                 name "LOCAL-OUT"
+            }
+        }
+        from VPN {
+            firewall {
+                ipv6-name "VPN-DMZ6"
+                name "VPN-DMZ"
             }
         }
         from WAN {
@@ -467,6 +608,12 @@ firewall {
             firewall {
                 ipv6-name "LOCAL-OUT6"
                 name "LOCAL-OUT"
+            }
+        }
+        from VPN {
+            firewall {
+                ipv6-name "VPN-INTERNAL6"
+                name "VPN-INTERNAL"
             }
         }
         from WAN {
@@ -496,6 +643,12 @@ firewall {
                 ipv6-name "V6ONLY-LOCAL6"
             }
         }
+        from VPN {
+            firewall {
+                ipv6-name "VPN-LOCAL6"
+                name "VPN-LOCAL"
+            }
+        }
         from WAN {
             firewall {
                 ipv6-name "WAN-LOCAL6"
@@ -512,6 +665,16 @@ firewall {
             }
         }
         interface "eth3"
+    }
+    zone VPN {
+        default-action "drop"
+        from LOCAL {
+            firewall {
+                ipv6-name "LOCAL-OUT6"
+                name "LOCAL-OUT"
+            }
+        }
+        interface "vtun0"
     }
     zone WAN {
         default-action "drop"
@@ -566,6 +729,37 @@ interfaces {
         hw-id "00:0c:29:07:45:72"
     }
     loopback lo {
+    }
+    openvpn vtun0 {
+        device-type "tun"
+        encryption {
+            cipher "aes256gcm"
+        }
+        hash "sha256"
+        local-port "1194"
+        mode "server"
+        openvpn-option "--plugin /usr/lib/openvpn/openvpn-auth-ldap.so /config/auth/ldap-auth.config"
+        openvpn-option "--verify-client-cert none"
+        openvpn-option "--username-as-common-name"
+        persistent-tunnel
+        protocol "udp"
+        server {
+            name-server "10.7.99.1"
+            push-route 10.7.0.0/24 {
+            }
+            push-route 192.168.7.0/24 {
+            }
+            push-route 2001:1470:fffd:9a::/64 {
+            }
+            push-route 2001:1470:fffd:99::/64 {
+            }
+            subnet "10.7.99.0/24"
+            subnet "fd07:99::/64"
+        }
+        tls {
+            ca-certificate "ca-vpn"
+            certificate "srv-vpn"
+        }
     }
 }
 nat {
@@ -626,6 +820,20 @@ nat66 {
         }
     }
 }
+pki {
+    ca ca-vpn {
+        certificate "MIIDnzCCAoegAwIBAgIUEb2fKro+1zGRiXf+8q5GTQ5b0h8wDQYJKoZIhvcNAQELBQAwWDELMAkGA1UEBhMCU0kxEzARBgNVBAgMClNvbWUtU3RhdGUxEjAQBgNVBAcMCUxqdWJsamFuYTENMAsGA1UECgwEVnlPUzERMA8GA1UEAwwIa3liZXIuaW8wHhcNMjYwNTMxMTcxNjQxWhcNMzEwNTMwMTcxNjQxWjBYMQswCQYDVQQGEwJTSTETMBEGA1UECAwKU29tZS1TdGF0ZTESMBAGA1UEBwwJTGp1YmxqYW5hMQ0wCwYDVQQKDARWeU9TMREwDwYDVQQDDAhreWJlci5pbzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKfeQY06C2HhpPPDIy8AdDq0a3ATO5KmK1gixRH7ZrLYYURmY2apoURmiSzbqhvjBNSgoNDWQMitt0AXgH36s/Llh8iNpQgLZwHhkqgwtIwbV2ut+/hDlbOhJ3kgeFDgt40qNtyQ7W0HkOSeRBbnmtkweQ6q15tq0t6Ix+SwOV3kj6kfN6Fjj4WQ3ZIRd+3kuwXviFm0FvI526qNStF0oAZ6pduzQn3FNQatdnC4j3C4/EbDw9xXYtdrXQ4FF/zkVtWuVTivCWLKrsambH24MfWAkJwtPJGelREXKOHkEGwwbUZhs7FstHCT3g4aogkNkXynzuLfj8IOQR631w2diRUCAwEAAaNhMF8wDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAYYwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMBMB0GA1UdDgQWBBSihUgy5knVwKAgKDsgw7W/rux85TANBgkqhkiG9w0BAQsFAAOCAQEAGVFov8F4IQTKMkErhGoYBahjBRLSjvkbBzkYvWMPVbDsp0wKiULUEhmyZ9hxbC7wbG+xyGja4Jj8KXeQkvCqTJ7R3VfWDoRXjoBL5Xwv9MLjM+x9p4rRBmicHBq6TdoKcvcI5ZYRv3z9Q6zz4gVvsgagVZLEylyqKKn+ZLf8GyRwVXVdithXvHBFmHXXRvh+HErtJSIZ+EEPl+sCp13grlDlLYOP65jIK7A0MGM20FvG0Wv+NDpvMgwXIqUu7kl3Mf/LXPJsrHBuQ2wCCmMh6EFiRTdG/Dyi/RXdjWDLOeRLHIL4xyosFBHE4HTqnJ9PCKhH7WgZbGJBskPf5rNQsQ=="
+        private {
+            key "<REDACTED>"
+        }
+    }
+    certificate srv-vpn {
+        certificate "MIIDszCCApugAwIBAgIUXv73qK+rcxaomL7w3T9Z4Pgbjo4wDQYJKoZIhvcNAQELBQAwWDELMAkGA1UEBhMCU0kxEzARBgNVBAgMClNvbWUtU3RhdGUxEjAQBgNVBAcMCUxqdWJsamFuYTENMAsGA1UECgwEVnlPUzERMA8GA1UEAwwIa3liZXIuaW8wHhcNMjYwNTMxMTcyMTM2WhcNMjcwNTMxMTcyMTM2WjBYMQswCQYDVQQGEwJTSTETMBEGA1UECAwKU29tZS1TdGF0ZTESMBAGA1UEBwwJTGp1YmxqYW5hMQ0wCwYDVQQKDARWeU9TMREwDwYDVQQDDAhreWJlci5pbzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALNQg68wJZIT/K9w4IbkQ8idieOj+5cEqNQlpVqMpBWlp4gHbwP5VZWImINPkjnYDqJUdo/QNQbCigjF8eVkggm6328n3u+Mk4fCHB5X99QbR8+e7tEvE3ROTxQBWL5MuJXI3dcE3Er8Rb5Bv1+o4fL8ojNCf3hQgxHFXNqKCfAhzFbhHhltABDrz+5MTICTH05EeCEIlgVHlRAYyVvkCun1JAcH3wLXygeGlqM7ylmjTrC3UQXNpSDfr2F1a8mnRS3Sy+88la1XIOn8KQtXOM3Y9+mNLvKY5esvcefWk7j47wJ9MJJfru7pzJ7Tnnm7f02ziuXhfCTqgwAnHjQ+G4sCAwEAAaN1MHMwDAYDVR0TAQH/BAIwADAOBgNVHQ8BAf8EBAMCB4AwEwYDVR0lBAwwCgYIKwYBBQUHAwEwHQYDVR0OBBYEFAiW/4+TihCk1shOpNQdOxHmZyn1MB8GA1UdIwQYMBaAFKKFSDLmSdXAoCAoOyDDtb+u7HzlMA0GCSqGSIb3DQEBCwUAA4IBAQCnegda3KJsINCS7v6bNyOYU7qpjo6GzfSnoZ/8LqQUwbOiGkL+XOd1pkZa0CR7CB9z8QNMpI35bgNkI2zRg4AtH+sohCNRN4WN4Za0qlWpk4t/C78wdnSy20AptPx1kh7nALFDTrF6pA2fGjNjo4s4Ck8GYfyVa73l59rLgFLst94qtdnuisrkJ6YZXOaNZkxPNrfDrmHOeN6muBMBj/6vQm8Jif8i0wvcD8zGz1SkgDdrbQcGQFLtFCwpMDmQb5H8VQBJh6RxX5rEwhAOAu4HnX592xJ0o/oTRuJqJ2Md9BFrB3Aq723p+KvrCfQVkUWLrQIAvHaxtM9sVdRk1PSm"
+        private {
+            key "<REDACTED>"
+        }
+    }
+}
 protocols {
     static {
         route 0.0.0.0/0 {
@@ -648,6 +856,10 @@ service {
                 static-mapping app-01 {
                     ip-address "192.168.7.10"
                     mac-address "00:0c:29:a9:04:71"
+                }
+                static-mapping app-02 {
+                    ip-address "192.168.7.11"
+                    mac-address "00:0C:29:E3:A7:80"
                 }
                 static-mapping ldap {
                     ip-address "192.168.7.30"
@@ -681,6 +893,10 @@ service {
                 static-mapping app-01 {
                     identifier "00:03:00:01:00:0c:29:a9:04:71"
                     ipv6-address "2001:1470:fffd:99::10"
+                }
+                static-mapping app-02 {
+                    identifier "00:03:00:01:00:0C:29:E3:A7:80"
+                    ipv6-address "2001:1470:fffd:99::11"
                 }
                 static-mapping ldap {
                     identifier "00:03:00:01:00:0C:29:82:FB:06"
@@ -717,6 +933,9 @@ service {
             allow-from "fd07:1:1:1::/64"
             allow-from "2001:1470:fffd:99::/64"
             allow-from "2001:1470:fffd:9a::/64"
+            allow-from "10.7.99.0/24"
+            allow-from "fd07:99::/64"
+            allow-from "127.0.0.0/8"
             domain 7.168.192.in-addr.arpa {
                 name-server 192.168.7.30 {
                 }
@@ -734,6 +953,9 @@ service {
             listen-address "fd07:1:1:1::1"
             listen-address "2001:1470:fffd:99::1"
             listen-address "2001:1470:fffd:9a::1"
+            listen-address "10.7.99.1"
+            listen-address "fd07:99::1"
+            listen-address "127.0.0.1"
             name-server 1.0.0.1 {
             }
             name-server 1.1.1.1 {
@@ -836,25 +1058,24 @@ system {
     login {
         user vyos {
             authentication {
-                encrypted-password "$6$rounds=656000$Yswh0KcGlD5U7yPy$.gfJzXUTMq530LFipfAe1nVn0D6t3Zt9bNFhnb8ncwhvLJzgJZTERdPUe922bGCsM/L36NkJDh7uaEo.w2sEe."
-                plaintext-password ""
+                encrypted-password "<REDACTED>"
+                plaintext-password "<REDACTED>"
                 public-keys desktop-pc-saturn {
-                    key "AAAAC3NzaC1lZDI1NTE5AAAAIMQxC3q6bGjehahRourdtrGvM8GnFqD/0KnuRUMymPrh"
+                    key "<REDACTED>"
                     type "ssh-ed25519"
                 }
                 public-keys luka-laptop {
-                    key "AAAAC3NzaC1lZDI1NTE5AAAAID+iVqMJTY66DBlSCZMzZjjQbs7wZDF4QPaSEJw6y3Xp"
+                    key "<REDACTED>"
                     type "ssh-ed25519"
                 }
                 public-keys urban-laptop {
-                    key "AAAAC3NzaC1lZDI1NTE5AAAAIETuSEFMw73ojxO8FLlon2c8B3WkB1kUCCjOXgZZn/6D"
+                    key "<REDACTED>"
                     type "ssh-ed25519"
                 }
             }
         }
     }
-    name-server "1.1.1.1"
-    name-server "8.8.8.8"
+    name-server "127.0.0.1"
     syslog {
         global {
             facility all {

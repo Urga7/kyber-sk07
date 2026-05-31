@@ -42,12 +42,28 @@
 - `set service dns forwarding listen-address 'fd07:1:1:1::1'`
 - `set service dns forwarding listen-address '2001:1470:fffd:99::1'`
 - `set service dns forwarding listen-address '2001:1470:fffd:9a::1'`
+- `set service dns forwarding listen-address '127.0.0.1'`
 - `set service dns forwarding allow-from '10.7.0.0/24'`
 - `set service dns forwarding allow-from '192.168.7.0/24'`
 - `set service dns forwarding allow-from 'fd07:1:1:1::/64'`
 - `set service dns forwarding allow-from '2001:1470:fffd:99::/64'`
 - `set service dns forwarding allow-from '2001:1470:fffd:9a::/64'`
+- `set service dns forwarding allow-from '127.0.0.0/8'`
 - `set service dns forwarding no-serve-rfc1918`
+
+### Router self-resolution (the router uses its own split-DNS forwarder)
+The router's *own* lookups go through `system name-server` (→ `/etc/resolv.conf`), **not** the
+forwarder above — so without this the router can't resolve internal `kyber.local` names even
+though clients can. This bites router-originated services: e.g. OpenVPN's `openvpn-auth-ldap`
+resolving `kyber-ldap.kyber.local` (N7) fails with *"Can't contact LDAP server"*. Point the
+router at its own recursor (listening on `127.0.0.1`, added above) so its lookups get the same
+split treatment (`kyber.local` → FreeIPA, everything else → upstream):
+- `set system name-server '127.0.0.1'`
+- (if any other `system name-server` entries exist, **delete** them so all router DNS goes through the recursor)
+
+Verify (operational mode):
+- `dig kyber-ldap.kyber.local +short` → `192.168.7.30` (internal split answer)
+- `dig vyos.net +short` → a public IP (upstream still works)
 
 ### DNS advertisement on ipv6-only (RDNSS via SLAAC)
 - `set service router-advert interface eth3 name-server 'fd07:1:1:1::1'`

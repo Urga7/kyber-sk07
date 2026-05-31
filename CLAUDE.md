@@ -64,7 +64,7 @@ Architecture worth knowing before editing:
 ## Conventions
 
 - **Runbook numbering**: files in each host dir are numbered sequentially (`00-`, `01-`, …); new runbooks continue the sequence. Don't renumber existing files.
-- **VyOS commands**: bare `set`/`delete` meant for configure mode (`configure` → commands → `commit` → `save` → `exit`). Save a fresh `vyos/snapshot-config.boot` after every meaningful router change.
+- **VyOS commands**: bare `set`/`delete` meant for configure mode (`configure` → commands → `commit` → `save` → `exit`). Note `show`/`generate` are **operational-mode** commands — from configure mode prefix them with `run`. After every meaningful router change, refresh the snapshot by running **`vyos/update-snapshot.sh`** (fetches `/config/config.boot` and **redacts secrets** — PKI private keys, password hashes — before writing `vyos/snapshot-config.boot`). **Never commit a raw `config.boot`**; it holds cleartext private keys.
 - **Dual-stack always**: every host and service must be reachable over **both IPv4 and IPv6** — no host opts out of v6, including the FreeIPA box (`kyber-ldap` installs v4-first, then enables DHCPv6 → `::30`). The IPv6-only segment is v6-only by definition. Firewall rules must cover both stacks.
 - **VM naming**: singleton VMs are unnumbered — `kyber-rtr`, `kyber-mon`, `kyber-ldap`, `kyber-ipv6`; only the paired VMs carry numbers — `kyber-app-01`/`-02`, `kyber-ws-01`/`-02`. Never `mon-01`/`rtr-01`.
 - **Acceptance criteria IDs**: cite the relevant `S#`/`N#`/`I#` from `kyber-project-plan.md` in runbooks and commit messages.
@@ -76,7 +76,7 @@ Architecture worth knowing before editing:
 - REST framework: Python / FastAPI (SQLAlchemy, uvicorn, nginx)
 - Database: PostgreSQL
 - User directory: FreeIPA (provides the CA for all internal TLS)
-- VPN: WireGuard
+- VPN: OpenVPN on VyOS (FreeIPA/LDAP username+password auth via `openvpn-auth-ldap`)
 - Monitoring: Prometheus + Grafana
 - Consensus: etcd (RAFT, 3 nodes)
 

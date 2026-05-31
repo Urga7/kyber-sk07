@@ -16,7 +16,7 @@ encoded twice).
 | DMZ      | eth2                | 192.168.7.0/24, 2001:1470:fffd:99::/64                |
 | V6ONLY   | eth3                | fd07:1:1:1::/64 (ULA, NPTv6 outer: 2001:1470:fffd:9b::/64) |
 | LOCAL    | (router itself)     | all router-owned addresses                             |
-| VPN      | wg0 (once deployed) | 10.7.99.0/24 (IPv4 tunnel), fd07:99::/64 (IPv6 ULA tunnel, TBD in N7) |
+| VPN      | vtun0 (OpenVPN)     | 10.7.99.0/24 (IPv4 tunnel), fd07:99::/64 (IPv6 ULA tunnel) |
 
 **Default policy for all zone pairs not listed below: DROP (silent).**
 
@@ -68,10 +68,10 @@ Traffic destined for the router itself, arriving from the internet.
 |---|-------|--------------|--------|-----------|
 | 20 | ICMPv4 | echo-request (rate-limit 10/s) | accept | Reachability probing. Rate-limited to blunt amplification. |
 | 21 | ICMPv6 | echo-request (rate-limit 10/s) | accept | Same for IPv6. Also required for NDP/path-MTU to function. |
-| 30 | UDP   | 51820 (WireGuard) | accept | VPN endpoint (N7). Only intentionally exposed management port on the router. |
+| 30 | UDP   | 1194 (OpenVPN) | accept | VPN endpoint (N7). Only intentionally exposed management port on the router. Auth is FreeIPA username/password (live, `vpn-users`). |
 | 999 | any   | any          | drop + log | Everything else. No raw SSH from WAN — management is VPN-only. |
 
-> **Temporary exception (pre-N7):** until WireGuard is deployed, the router is
+> **Temporary exception (pre-N7):** until the OpenVPN endpoint is deployed, the router is
 > only reachable for management over WAN SSH. The encoding (07) therefore adds a
 > **temporary `tcp/22` accept** here, source-restricted to the admin host where
 > possible, and **removed once N7 is live**. Without it, committing the policy
@@ -129,7 +129,7 @@ Traffic from internal clients to the router itself.
 | 32 | UDP   | 67,68 | accept | DHCPv4 (N3). Broadcast-based; VyOS is the DHCP server on eth1. |
 | 33 | UDP   | 546,547 | accept | DHCPv6 (N3). |
 | 34 | ICMPv4+ICMPv6 | echo-request | accept | Clients should be able to ping the gateway. |
-| 999 | any  | any  | drop   | No direct access to SNMP, WireGuard port, or any other router service from clients. |
+| 999 | any  | any  | drop   | No direct access to SNMP, the OpenVPN port, or any other router service from clients. |
 
 ---
 
@@ -193,7 +193,7 @@ The NPTv6 safety drop at rule 5 lives in the 1–9 defensive-drop range (see
 ---
 
 ### VPN → INTERNAL
-Traffic from WireGuard tunnel clients (tunnel subnet 10.7.99.0/24 + fd07:99::/64) to internal workstations and servers.
+Traffic from OpenVPN tunnel clients (tunnel subnet 10.7.99.0/24 + fd07:99::/64) to internal workstations and servers.
 VPN users are remote administrators, not anonymous clients. Access is scoped to defined management
 protocols — least-privilege applies here as everywhere else in this policy.
 
@@ -228,7 +228,7 @@ to the DMZ directly is not needed. This block covers service access and server a
 ### LOCAL → any
 | # | Action | Rationale |
 |---|--------|-----------|
-| 20 | accept | Router-initiated traffic (NTP sync to upstream servers, DNS queries, WireGuard handshakes, SNMP traps if configured) must always be allowed. |
+| 20 | accept | Router-initiated traffic (NTP sync to upstream servers, DNS queries, OpenVPN/TLS, SNMP traps if configured) must always be allowed. |
 
 ---
 
@@ -372,7 +372,8 @@ on the box:
 - `LOCAL → any` is a permissive `LOCAL-OUT` chain attached `from LOCAL` on every
   zone, so router-initiated NTP/DNS/update flows (new connections, not just
   replies) are allowed.
-- WireGuard `wg0` will carry dual-stack tunnel addresses (10.7.99.0/24 +
-  fd07:99::/64); the `VPN` zone and its rules are added in the N7 runbook once the
-  `wg0` interface exists, at which point the temporary WAN → LOCAL SSH accept is
-  removed.
+- OpenVPN `vtun0` carries dual-stack tunnel addresses (10.7.99.0/24 +
+  fd07:99::/64); the `VPN` zone and its rules are encoded in the N7 runbook
+  (`vyos/08-openvpn-vpn.md`) once the `vtun0` interface exists, at which point the
+  temporary WAN → LOCAL SSH accept is removed. User auth is live against FreeIPA
+  (`openvpn-auth-ldap`, `vpn-users` membership) — no per-user keys/certs to provision.

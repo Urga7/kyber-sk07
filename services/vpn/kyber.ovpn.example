@@ -1,0 +1,37 @@
+# kyber.local remote-access VPN — client config (N7.5)
+# Same file for EVERY user; authentication is your FreeIPA username + password.
+# No per-user cert/key (server runs --verify-client-cert none).
+#   Linux:   sudo openvpn --config kyber.ovpn
+#   GUI app: import this file, then enter your IPA credentials.
+
+client
+dev tun
+proto udp
+remote 88.200.24.237 1194
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+
+# Prompt for IPA username + password every time; never cache to disk
+auth-user-pass
+auth-nocache
+
+# Pin the server identity; must match the server cert's key usage
+remote-cert-tls server
+
+# Crypto — match the server (runbook 08 §4)
+cipher AES-256-GCM
+auth SHA256
+
+# SPLIT TUNNEL: the server pushes the company routes (10.7.0.0/24, 192.168.7.0/24, the v6
+# prefixes). Do NOT add redirect-gateway here — general internet stays on your own link.
+
+verb 3
+
+# Paste the VyOS OpenVPN CA between these tags: `show pki ca ca-vpn` on kyber-rtr.
+<ca>
+-----BEGIN CERTIFICATE-----
+<PASTE ca-vpn CERTIFICATE HERE>
+-----END CERTIFICATE-----
+</ca>

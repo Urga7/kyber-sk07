@@ -11,14 +11,6 @@ local-zone. Stateful baseline is the global `state-policy` (already set on the b
 per-type ICMPv6, HTTP/3, Kerberos) the brief doesn't require. The policy doc keeps
 the full rationale; this is the lean thing to paste and test.
 
-## ⚠️ Read before you commit — remote-lockout risk
-
-Managed over SSH **through eth0 (WAN)**; the policy is VPN-only but WireGuard isn't
-up yet (N7). Safeguards:
-1. **Temporary `WAN → LOCAL` SSH accept (rule 40)** — delete once N7 is live.
-2. **`commit-confirm 10`** auto-reverts in 10 min unless you `confirm`. **Don't
-   `save` until after `confirm`.**
-
 If a `set` line is rejected, tab-complete it on the box.
 
 ---
@@ -48,28 +40,19 @@ set firewall ipv4 name WAN-LOCAL default-action 'drop'
 set firewall ipv4 name WAN-LOCAL rule 20 protocol 'icmp'
 set firewall ipv4 name WAN-LOCAL rule 20 icmp type-name 'echo-request'
 set firewall ipv4 name WAN-LOCAL rule 20 action 'accept'
-set firewall ipv4 name WAN-LOCAL rule 30 description 'WireGuard endpoint (N7)'
+set firewall ipv4 name WAN-LOCAL rule 30 description 'OpenVPN endpoint (N7)'
 set firewall ipv4 name WAN-LOCAL rule 30 protocol 'udp'
-set firewall ipv4 name WAN-LOCAL rule 30 destination port '51820'
+set firewall ipv4 name WAN-LOCAL rule 30 destination port '1194'
 set firewall ipv4 name WAN-LOCAL rule 30 action 'accept'
-set firewall ipv4 name WAN-LOCAL rule 40 description 'TEMP admin SSH - REMOVE after N7'
-set firewall ipv4 name WAN-LOCAL rule 40 protocol 'tcp'
-set firewall ipv4 name WAN-LOCAL rule 40 destination port '22'
-set firewall ipv4 name WAN-LOCAL rule 40 action 'accept'
-# HARDEN: source-restrict the temp rule, e.g.
-# set firewall ipv4 name WAN-LOCAL rule 40 source address '<your.admin.ip>/32'
 
 set firewall ipv6 name WAN-LOCAL6 default-action 'drop'
 set firewall ipv6 name WAN-LOCAL6 rule 20 description 'icmpv6 (echo + NDP)'
 set firewall ipv6 name WAN-LOCAL6 rule 20 protocol 'ipv6-icmp'
 set firewall ipv6 name WAN-LOCAL6 rule 20 action 'accept'
+set firewall ipv6 name WAN-LOCAL6 rule 30 description 'OpenVPN endpoint (N7)'
 set firewall ipv6 name WAN-LOCAL6 rule 30 protocol 'udp'
-set firewall ipv6 name WAN-LOCAL6 rule 30 destination port '51820'
+set firewall ipv6 name WAN-LOCAL6 rule 30 destination port '1194'
 set firewall ipv6 name WAN-LOCAL6 rule 30 action 'accept'
-set firewall ipv6 name WAN-LOCAL6 rule 40 description 'TEMP admin SSH - REMOVE after N7'
-set firewall ipv6 name WAN-LOCAL6 rule 40 protocol 'tcp'
-set firewall ipv6 name WAN-LOCAL6 rule 40 destination port '22'
-set firewall ipv6 name WAN-LOCAL6 rule 40 action 'accept'
 ```
 
 ### 1d. WAN → DMZ  (HTTPS only; external reach needs I1 DNAT)
@@ -378,7 +361,7 @@ scp vyos@88.200.24.237:/config/config.boot vyos/snapshot-config.boot
 ---
 
 ## 3. Follow-ups
-- **N7:** add the `VPN` zone (`wg0`), then **delete the TEMP `WAN-LOCAL`/`WAN-LOCAL6`
+- **N7:** add the `VPN` zone (`vtun0`), then **delete the TEMP `WAN-LOCAL`/`WAN-LOCAL6`
   rule 40** (SSH becomes VPN-only).
 - **I1:** add the DNAT (`88.200.24.237:443` → VIP `192.168.7.100:443`); WAN→DMZ 443
   accept is already here.
