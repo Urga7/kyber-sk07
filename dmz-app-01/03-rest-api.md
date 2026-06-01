@@ -249,7 +249,7 @@ Persistence — created rows survive `sudo systemctl restart kyber-api postgresq
 HTTP/2 — confirm the negotiated protocol is `h2`:
 
 ```
-curl -sI --http2 https://api.kyber.local/customers | grep -i '^HTTP'   # HTTP/2 200
+curl -s -D - -o /dev/null --http2 https://api.kyber.local/customers | grep -i '^HTTP'   # HTTP/2 200  (GET headers via -D -; -I/HEAD would 405 — routes are GET-only)
 ```
 
 IPv6:

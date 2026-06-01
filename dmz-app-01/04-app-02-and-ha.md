@@ -279,7 +279,7 @@ getent ahosts api.kyber.local        # -> 192.168.7.100 + 2001:1470:fffd:99::100
 ip -br addr show ens160        # on app-01: shows 192.168.7.100 + ::100 ; on app-02: not present
 
 # reachable + HTTP/2 + valid cert, from a CA-trusting client (ws-01/ws-02)
-curl -sI --http2 https://api.kyber.local/customers | grep -i '^HTTP'   # HTTP/2 200
+curl -s -D - -o /dev/null --http2 https://api.kyber.local/customers | grep -i '^HTTP'   # HTTP/2 200  (GET headers via -D -; -I/HEAD would 405 — routes are GET-only)
 curl -6 https://api.kyber.local/health                                 # IPv6 path
 
 # load distribution — both backends serve (watch uvicorn access logs on BOTH nodes)
