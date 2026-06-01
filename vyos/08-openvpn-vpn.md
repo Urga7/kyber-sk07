@@ -81,6 +81,14 @@ set interfaces openvpn vtun0 tls certificate 'srv-vpn'
 set interfaces openvpn vtun0 encryption cipher 'aes256gcm'
 set interfaces openvpn vtun0 hash 'sha256'
 
+# keepalive — REQUIRED on UDP. Pings every 10s, declares dead + restarts after 60s
+# (interval × failure-count). Without it an idle tunnel silently dies: the NAT/conntrack
+# pinhole for the udp/1194 flow expires, server→client replies get dropped, and the client
+# sits there showing "connected" (persist-tun) while DNS times out and SSH hangs. The server
+# auto-pushes this to clients, so nothing needs adding to the .ovpn.
+set interfaces openvpn vtun0 keep-alive interval 10
+set interfaces openvpn vtun0 keep-alive failure-count 6
+
 # --- the load-bearing bit: FreeIPA password auth, no client certs (verbatim from VyOS docs) ---
 set interfaces openvpn vtun0 openvpn-option "--plugin /usr/lib/openvpn/openvpn-auth-ldap.so /config/auth/ldap-auth.config"
 set interfaces openvpn vtun0 openvpn-option "--verify-client-cert none"

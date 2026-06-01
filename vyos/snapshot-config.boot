@@ -1054,6 +1054,20 @@ system {
         }
     }
     domain-name "kyber.local"
+    flow-accounting {
+        interface "eth0"
+        interface "eth1"
+        interface "eth2"
+        interface "eth3"
+        netflow {
+            sampling-rate "1"
+            server 192.168.7.20 {
+                port "2055"
+            }
+            source-address "192.168.7.1"
+            version "9"
+        }
+    }
     host-name "kyber-rtr"
     login {
         user vyos {
