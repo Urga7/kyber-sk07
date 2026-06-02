@@ -7,7 +7,6 @@ from .auth import require_writer
 from .database import Base, engine, get_db
 from .serialization import negotiate
 
-# Tables are created by 02-postgresql.md; this is a harmless idempotent safety net.
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="kyber REST API", version="1.0")
@@ -22,7 +21,6 @@ def health():
     return {"status": "ok"}
 
 
-# ---------- customers ----------
 @app.get("/customers")
 def list_customers(request: Request, db: Session = Depends(get_db)):
     rows = [dump(c, schemas.CustomerOut) for c in db.query(models.Customer).all()]
@@ -37,12 +35,11 @@ def get_customer(cid: int, request: Request, db: Session = Depends(get_db)):
     return negotiate(request, dump(c, schemas.CustomerOut), root="customers", item="customer")
 
 
-@app.post("/customers")
+@app.post("/customers", dependencies=[Depends(require_writer)])
 def create_customer(
     payload: schemas.CustomerIn,
     request: Request,
-    db: Session = Depends(get_db),
-    user: str = Depends(require_writer),
+    db: Session = Depends(get_db)
 ):
     c = models.Customer(**payload.model_dump())
     db.add(c)
@@ -57,13 +54,12 @@ def create_customer(
     )
 
 
-@app.put("/customers/{cid}")
+@app.put("/customers/{cid}", dependencies=[Depends(require_writer)])
 def update_customer(
     cid: int,
     payload: schemas.CustomerIn,
     request: Request,
-    db: Session = Depends(get_db),
-    user: str = Depends(require_writer),
+    db: Session = Depends(get_db)
 ):
     c = db.get(models.Customer, cid)
     if not c:
@@ -75,9 +71,9 @@ def update_customer(
     return negotiate(request, dump(c, schemas.CustomerOut), root="customers", item="customer")
 
 
-@app.delete("/customers/{cid}", status_code=204)
+@app.delete("/customers/{cid}", status_code=204, dependencies=[Depends(require_writer)])
 def delete_customer(
-    cid: int, db: Session = Depends(get_db), user: str = Depends(require_writer)
+    cid: int, db: Session = Depends(get_db)
 ):
     c = db.get(models.Customer, cid)
     if not c:
@@ -86,7 +82,6 @@ def delete_customer(
     db.commit()
 
 
-# ---------- orders ----------
 @app.get("/orders")
 def list_orders(request: Request, db: Session = Depends(get_db)):
     rows = [dump(o, schemas.OrderOut) for o in db.query(models.Order).all()]
@@ -101,12 +96,11 @@ def get_order(oid: int, request: Request, db: Session = Depends(get_db)):
     return negotiate(request, dump(o, schemas.OrderOut), root="orders", item="order")
 
 
-@app.post("/orders")
+@app.post("/orders", dependencies=[Depends(require_writer)])
 def create_order(
     payload: schemas.OrderIn,
     request: Request,
-    db: Session = Depends(get_db),
-    user: str = Depends(require_writer),
+    db: Session = Depends(get_db)
 ):
     if not db.get(models.Customer, payload.customer_id):
         raise HTTPException(400, "customer_id does not exist")
@@ -119,13 +113,12 @@ def create_order(
     )
 
 
-@app.put("/orders/{oid}")
+@app.put("/orders/{oid}", dependencies=[Depends(require_writer)])
 def update_order(
     oid: int,
     payload: schemas.OrderIn,
     request: Request,
-    db: Session = Depends(get_db),
-    user: str = Depends(require_writer),
+    db: Session = Depends(get_db)
 ):
     o = db.get(models.Order, oid)
     if not o:
@@ -137,10 +130,8 @@ def update_order(
     return negotiate(request, dump(o, schemas.OrderOut), root="orders", item="order")
 
 
-@app.delete("/orders/{oid}", status_code=204)
-def delete_order(
-    oid: int, db: Session = Depends(get_db), user: str = Depends(require_writer)
-):
+@app.delete("/orders/{oid}", status_code=204, dependencies=[Depends(require_writer)])
+def delete_order(oid: int, db: Session = Depends(get_db)):
     o = db.get(models.Order, oid)
     if not o:
         raise HTTPException(404, "order not found")

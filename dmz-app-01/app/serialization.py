@@ -30,7 +30,7 @@ def _to_xml(data, root, item):
     return f"{head}<{item}>{_fields_xml(data)}</{item}>"
 
 
-def _to_html(data, root, item):
+def _to_html(data, root):
     rows = data if isinstance(data, list) else [data]
     if not rows:
         return f"<!doctype html><html><body><h1>{root}</h1><p>No records.</p></body></html>"
@@ -59,7 +59,7 @@ def negotiate(request: Request, data, *, root, item, status_code=200):
         )
     if "text/html" in accept:
         return Response(
-            _to_html(data, root, item),
+            _to_html(data, root),
             media_type="text/html",
             status_code=status_code,
         )
