@@ -92,6 +92,11 @@ the connection string the API will use in `03-rest-api.md`.
 
 ## 6. Expose the primary to app-02 (HA — S3.7)
 
+> **Superseded by `05-etcd-patroni-ha.md`.** This section describes the *pre-Patroni*
+> shared-single-primary arrangement (manual `listen_addresses` + `pg_hba` on the apt-managed
+> cluster). Once Patroni is deployed it owns `postgresql.conf`/`pg_hba`/replication and this
+> manual setup is retired — keep this section as historical context only.
+
 The second API instance (`kyber-app-02`, see `04-app-02-and-ha.md`) connects to **this**
 primary over the DMZ — a **shared single primary**, no replica. Have PostgreSQL listen on the
 DMZ address and authorize only app-02's `kyber_api` connections, over TLS:

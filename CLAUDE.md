@@ -88,19 +88,20 @@ Two parallel workstreams after bootstrap:
 
 When generating config or docs, identify the track and follow the conventions of the existing files in that track's directory.
 
-## Build status (2026-05-31 checkpoint)
+## Build status (2026-06-02 checkpoint)
 
 Derived from the runbooks + the live `vyos/snapshot-config.boot`.
 
 **Live / done:**
-- **Track N** (`kyber-rtr`, all present in the snapshot): dual-stack addressing + static routes; NAT44 masquerade (N1); NPTv6 for the v6-only segment (N2); DHCPv4/DHCPv6 + RAs (N3); DNS forwarding incl. `kyber.local`→FreeIPA + the `7.168.192.in-addr.arpa` reverse zone (N4); NTP relay (N5); **zone-based dual-stack firewall (N6) — live**; SNMP agent `kyber-ro` restricted to `kyber-mon` (N8).
-- **Track S:** FreeIPA on `kyber-ldap` — LDAP/Kerberos/CA + integrated DNS, users `alice/bob/carol/dave`, groups `vpn-users`/`api-writers` (S1, S2); PostgreSQL + FastAPI REST API on `kyber-app-01` with a FreeIPA TLS cert, content negotiation, LDAP-gated writes, IPv6 (S3.1–3.6, 3.8, 3.9); Prometheus + node/snmp exporters + Grafana on `kyber-mon` (S5); Ubuntu + Windows internal clients (S9); IPv6-only host via SLAAC (S8).
+- **Track N** (`kyber-rtr`, all present in the snapshot): dual-stack addressing + static routes; NAT44 masquerade (N1); NPTv6 for the v6-only segment (N2); DHCPv4/DHCPv6 + RAs (N3); DNS forwarding incl. `kyber.local`→FreeIPA + the `7.168.192.in-addr.arpa` reverse zone (N4); NTP relay (N5); **zone-based dual-stack firewall (N6) — live**; SNMP agent `kyber-ro` restricted to `kyber-mon` (N8); **NetFlow v9 export** from all four interfaces → `kyber-mon:2055` (N9).
+- **N7 VPN — live.** **OpenVPN** in server mode on `vtun0` (`udp/1194` on WAN), dual-stack split-tunnel (`10.7.99.0/24` + `fd07:99::/64`), **FreeIPA LDAP password auth** via `openvpn-auth-ldap` (no per-user keys; authorized by live `vpn-users` membership). Its own `VPN` firewall zone (`vyos/08-openvpn-vpn.md`). The temporary `WAN→LOCAL` SSH rule has been **removed** — WAN→LOCAL now permits only ICMP echo + `udp/1194`, so **router SSH is VPN-only**. ⚠️ Reaching `kyber-rtr` over SSH now requires the tunnel up first.
+- **Track S:** FreeIPA on `kyber-ldap` — LDAP/Kerberos/CA + integrated DNS, users `alice/bob/carol/dave` (+ real VPN accounts `luka/urban`), groups `vpn-users`/`api-writers` (S1, S2); PostgreSQL + FastAPI REST API on `kyber-app-01` with a FreeIPA TLS cert, content negotiation, LDAP-gated writes, IPv6 (S3.1–3.6, 3.8, 3.9); Prometheus + node/snmp exporters + Grafana on `kyber-mon` (S5); **NetFlow collector (ntopng) on `kyber-mon`** (`dmz-mon/04-ntopng-netflow.md`, S6); Ubuntu + Windows internal clients (S9); IPv6-only host via SLAAC (S8).
+- **S3.7 REST API HA — live.** `kyber-app-02` built and FreeIPA-enrolled; `keepalived` dual-stack VIP `192.168.7.100`/`::100` + **active-active** nginx upstream across both uvicorns (`vyos`/`dmz-app-01/04-app-02-and-ha.md`). `api.kyber.local` now resolves to the VIP. All HA traffic is intra-DMZ/L2 — no router firewall changes. **PostgreSQL is a shared single primary on app-01 — accepted SPOF** (no replica yet).
 
 **Pending / not built:**
-- **N7 VPN (WireGuard)** — not deployed. A **temporary `WAN→LOCAL` SSH accept (rule 40)** is live in the firewall to avoid lockout and **must be deleted once N7 is up** (router SSH then becomes VPN-only). The `udp/51820` WireGuard accept is already pre-staged.
-- **S3.7 HA** — designed in `dmz-app-01/04-app-02-and-ha.md` (keepalived VIP `192.168.7.100`/`::100` + nginx **active-active** across app-01/app-02, **shared single PostgreSQL primary** on app-01 — accepted SPOF). **app-02 not built yet**; until executed, `api.kyber.local` still resolves to app-01 `.10`/`::10`.
-- **S4 etcd** (3-node RAFT) — not started.
-- **I1 DNAT** (`88.200.24.237:443` → VIP) — pending HA; the `WAN→DMZ tcp/443` accept is already in the firewall.
-- Optional: NetFlow/ntopng (N9/S6), Suricata IDS (S7), HTTP/3 (S3.10), GraphQL (S3.11).
+- **S4 etcd + Patroni** (3-node RAFT on app-01/app-02/mon; Patroni as the consumer, providing PostgreSQL auto-failover that retires the app-01 DB SPOF) — **runbook written** (`dmz-app-01/05-etcd-patroni-ha.md`), **not yet executed/verified** on the VMs. Option A: mon is the etcd witness (no Postgres); async replication; full mutual TLS from the FreeIPA CA; API reaches the primary via a multi-host libpq URL (no DB proxy/VIP).
+- **I1 DNAT** (`88.200.24.237:443` → VIP `192.168.7.100`) — **not configured** (no DNAT rule in the snapshot); the `WAN→DMZ tcp/443` accept is already pre-staged in the firewall, so it's a small step. Until done, the API is LAN/VPN-only from outside.
+- **Technical report** (`/report/kyber-report.md`, the graded deliverable) — does not exist yet.
+- Optional, not built: Suricata IDS (S7), HTTP/3 (S3.10), GraphQL (S3.11).
 
 > **Every host is dual-stack — including the FreeIPA box.** `kyber-ldap` installs v4-first (clean FreeIPA install), then enables stateful DHCPv6 → `2001:1470:fffd:99::30` per `dmz-ldap/03-dhcpv6-prep.md` §2 (DUID-LL pinned via NetworkManager `ipv6.dhcp-duid`). If a v6 path to the directory misbehaves, confirm the address is up: `ip -6 addr show ens160` on `kyber-ldap` should show `::30`.
