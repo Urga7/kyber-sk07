@@ -9,7 +9,13 @@ from .serialization import negotiate
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="kyber REST API", version="1.0")
+app = FastAPI(
+    title="kyber REST API",
+    version="1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
+)
 
 
 def dump(obj, schema):
@@ -19,6 +25,16 @@ def dump(obj, schema):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/")
+def read_root():
+    return {
+        "message": "Welcome to the kyber REST API",
+        "version": "1.0",
+        "documentation": "/docs",
+        "status": "reachable"
+    }
 
 
 @app.get("/customers")

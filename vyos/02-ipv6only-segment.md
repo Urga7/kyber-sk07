@@ -5,7 +5,6 @@
 ULA used: fd07:1:1:1::/64
 ```
 - `configure`
-- `set interfaces ethernet eth3 address 'fd07:1:1:1::1/64'`
 - `set service router-advert interface eth3 prefix fd07:1:1:1::/64`
 - `set service router-advert interface eth3 default-preference 'medium'`
 - `set nat66 source rule 10 description 'NPTv6 ipv6only outbound'`

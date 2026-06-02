@@ -1,28 +1,35 @@
 <#
 .SYNOPSIS
-    Deploy the kyber REST API source to kyber-app-01 and restart the service.
+    Deploy the kyber REST API source to kyber-app-01/-02 and restart the service.
 
 .DESCRIPTION
     Copies the local app/ directory to a staging dir in the kyber user's home via
     the VyOS jump-host, then installs it into /opt/kyber-api/app with the correct
     ownership and restarts kyber-api. Run this after editing the source in PyCharm.
 
+    With active-active HA both app VMs run the same source behind the nginx VIP, so
+    the deploy fans out to every host in -Targets in turn.
+
     Login is as 'kyber', but /opt/kyber-api/app is owned by 'kyberapi', so the copy
     lands in ~/kyber-app-staging first and a sudo step moves it into place.
 
 .PARAMETER Jump
-    SSH jump-host (VyOS WAN), user@host. Default vyos@88.200.24.237.
+    SSH jump-host (VyOS WAN), user@host. Default vyos@10.7.99.1.
 
-.PARAMETER Target
-    app-01 login, user@host. Default kyber@192.168.7.10.
+.PARAMETER Targets
+    App-VM logins, user@host. Default both HA nodes: kyber@192.168.7.10 (app-01)
+    and kyber@192.168.7.11 (app-02).
 
 .EXAMPLE
     .\deploy.ps1
+
+.EXAMPLE
+    .\deploy.ps1 -Targets kyber@192.168.7.10
 #>
 [CmdletBinding()]
 param(
-    [string]$Jump   = 'vyos@10.7.99.1',
-    [string]$Target = 'kyber@192.168.7.11'
+    [string]$Jump      = 'vyos@10.7.99.1',
+    [string[]]$Targets = @('kyber@192.168.7.10', 'kyber@192.168.7.11')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -31,17 +38,6 @@ $src = Join-Path $PSScriptRoot 'app'
 if (-not (Test-Path $src)) {
     throw "Source directory not found: $src"
 }
-
-Write-Host "==> Staging $src -> ${Target}:~/kyber-app-staging (via $Jump)" -ForegroundColor Cyan
-
-# Fresh staging dir so deletions propagate (scp has no --delete).
-ssh -J $Jump $Target 'rm -rf ~/kyber-app-staging && mkdir -p ~/kyber-app-staging'
-if ($LASTEXITCODE -ne 0) { throw "Failed to reset staging dir (exit $LASTEXITCODE)" }
-
-scp -r -J $Jump "$src/*" "${Target}:~/kyber-app-staging/"
-if ($LASTEXITCODE -ne 0) { throw "scp failed (exit $LASTEXITCODE)" }
-
-Write-Host "==> Installing into /opt/kyber-api/app and restarting kyber-api" -ForegroundColor Cyan
 
 # Single-quoted here-string: nothing is expanded locally; runs verbatim on the host.
 $remote = @'
@@ -57,7 +53,22 @@ sudo systemctl --no-pager --lines=0 status kyber-api
 # `/opt/kyber-api/app\r`, etc. and every line fails.
 $remote = $remote.Replace("`r", "")
 
-ssh -t -J $Jump $Target $remote
-if ($LASTEXITCODE -ne 0) { throw "Remote install/restart failed (exit $LASTEXITCODE)" }
+foreach ($Target in $Targets) {
+    Write-Host "==> Staging $src -> ${Target}:~/kyber-app-staging (via $Jump)" -ForegroundColor Cyan
 
-Write-Host "==> Deployed." -ForegroundColor Green
+    # Fresh staging dir so deletions propagate (scp has no --delete).
+    ssh -J $Jump $Target 'rm -rf ~/kyber-app-staging && mkdir -p ~/kyber-app-staging'
+    if ($LASTEXITCODE -ne 0) { throw "[$Target] Failed to reset staging dir (exit $LASTEXITCODE)" }
+
+    scp -r -J $Jump "$src/*" "${Target}:~/kyber-app-staging/"
+    if ($LASTEXITCODE -ne 0) { throw "[$Target] scp failed (exit $LASTEXITCODE)" }
+
+    Write-Host "==> [$Target] Installing into /opt/kyber-api/app and restarting kyber-api" -ForegroundColor Cyan
+
+    ssh -t -J $Jump $Target $remote
+    if ($LASTEXITCODE -ne 0) { throw "[$Target] Remote install/restart failed (exit $LASTEXITCODE)" }
+
+    Write-Host "==> [$Target] Deployed." -ForegroundColor Green
+}
+
+Write-Host "==> All targets deployed: $($Targets -join ', ')" -ForegroundColor Green
