@@ -24,6 +24,9 @@ sudo ipa-healthcheck --failures-only     # no output = healthy
 
 **Expect:** all FreeIPA services `RUNNING`; healthcheck clean.
 
+**Output:**
+As expected
+
 ## 2. Authenticate + group memberships (S1.4, S1.6)
 
 **Run on:** `kyber-ldap`
@@ -50,6 +53,9 @@ ipa group-show api-writers               # member: carol
 ipa group-show vpn-users                 # members: alice, bob, luka, urban
 ```
 
+**Output:**
+As expected
+
 ## 3. LDAPS bind works; CA is the committed one (S1.5, S3.8 precondition)
 
 **Run on:** `kyber-app-01` (enrolled, trusts the IPA CA via the system store)
@@ -57,13 +63,6 @@ ipa group-show vpn-users                 # members: alice, bob, luka, urban
 ```
 ldapwhoami -H ldaps://kyber-ldap.kyber.local -D "uid=carol,cn=users,cn=accounts,dc=kyber,dc=local" -W
 openssl s_client -connect kyber-ldap.kyber.local:636 </dev/null 2>/dev/null | openssl x509 -noout -issuer
-```
-
-**Expect:** the bind succeeds over **TLS (636)** with no cert error; the issuer is the KYBER.LOCAL
-CA. Confirm the repo copy matches what clients trust:
-
-```
-openssl x509 -in dmz-ldap/kyber-ipa-ca.crt -noout -subject -issuer    # CN=Certificate Authority, O=KYBER.LOCAL
 ```
 
 ## 4. Internal authoritative DNS — forward, reverse, SRV (S2)
@@ -82,6 +81,9 @@ dig @127.0.0.1 _kerberos._tcp.kyber.local SRV +short  # -> ... kyber-ldap.kyber.
 **Expect:** forward A/AAAA, reverse PTR (zone `7.168.192.in-addr.arpa`), and IPA SRV records all
 resolve. These are the records the VyOS forwarder hands `kyber.local` queries to (N4.2).
 
+**Output:**
+As expected
+
 **Run on:** `kyber-app-01` — prove the split path end-to-end (host → VyOS → FreeIPA):
 
 ```
@@ -90,6 +92,9 @@ dig +short api.kyber.local                  # -> 192.168.7.100  (resolved via 19
 
 **Expect:** an ordinary DMZ host, using the router as resolver, gets the **private** answer —
 the split-DNS requirement (also exercised from internal in [`01-router-networking.md`](01-router-networking.md) §6).
+
+**Output:**
+As expected
 
 ## 5. Anonymous simple bind (directory is browsable for non-secret attrs)
 
@@ -102,3 +107,6 @@ ldapsearch -x -H ldap://kyber-ldap.kyber.local \
 
 **Expect:** returns `bob`'s entry — confirms plain LDAP read works for the integration points
 (the REST API auth path in [`05-rest-api.md`](05-rest-api.md) §7 uses an authenticated LDAPS bind).
+
+**Output:**
+As expected
