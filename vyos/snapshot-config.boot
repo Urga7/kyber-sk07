@@ -736,6 +736,10 @@ interfaces {
             cipher "aes256gcm"
         }
         hash "sha256"
+        keep-alive {
+            failure-count "6"
+            interval "10"
+        }
         local-port "1194"
         mode "server"
         openvpn-option "--plugin /usr/lib/openvpn/openvpn-auth-ldap.so /config/auth/ldap-auth.config"
@@ -763,6 +767,22 @@ interfaces {
     }
 }
 nat {
+    destination {
+        rule 100 {
+            description "DNAT WAN:443 -> HA VIP (I1)"
+            destination {
+                address "88.200.24.237"
+                port "443"
+            }
+            inbound-interface {
+                name "eth0"
+            }
+            protocol "tcp"
+            translation {
+                address "192.168.7.100"
+            }
+        }
+    }
     source {
         rule 100 {
             description "Masquerade DMZ to WAN"
