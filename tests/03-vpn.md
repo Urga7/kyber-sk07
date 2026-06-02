@@ -4,9 +4,11 @@ Validates the OpenVPN server on `vtun0` (snapshot `interfaces openvpn vtun0`, `p
 `srv-vpn`) and the live `openvpn-auth-ldap` gate against `vpn-users`. Mirrors the acceptance in
 `vyos/08-openvpn-vpn.md` §9.
 
-**Where to run:** an **off-LAN** client (laptop on a phone hotspot / cloud VM) with the client
-profile built from `services/vpn/kyber.ovpn.example` (CA block from `show pki ca ca-vpn pem`);
-plus `kyber-rtr` and `kyber-ldap`. Covers **N7.1–N7.6**.
+**Where to run:** an **off-LAN** client — a laptop on a phone hotspot, a cloud VM, or a home PC
+that reaches `88.200.24.237:1194/udp` but is **not** on the internal/DMZ segments (the "remote
+worker"). **Not** `ws-01`/`ws-02` or any DMZ host — those are already inside (if a box can `ssh` an
+internal `10.7.0.x` host directly, it is not a valid vantage point). Plus `kyber-rtr` (§5) and
+`kyber-ldap` (§6). **Set the client up first — see §0.** Covers **N7.1–N7.6**.
 
 > As built: `udp/1194` on the WAN, split-tunnel (pushes `10.7.0.0/24`, `192.168.7.0/24`,
 > `…9a::/64`, `…99::/64` — **not** a default route), tunnel `10.7.99.0/24` + `fd07:99::/64`,
@@ -15,9 +17,32 @@ plus `kyber-rtr` and `kyber-ldap`. Covers **N7.1–N7.6**.
 
 ---
 
+## 0. Client setup (do this first)
+
+**Pick the right machine** — an external box per "Where to run" above. ws-01/ws-02/DMZ hosts are
+inside the LAN; the VPN grants access *to* those networks, so dialing in from one is meaningless.
+
+**Install an OpenVPN client.** Linux: `sudo apt -y install openvpn`. Windows: OpenVPN Connect or the
+Community GUI (openvpn.net), or `winget install OpenVPNTechnologies.OpenVPN`. There is **no `sudo`**
+on Windows — use the GUI, or an **elevated** (Run as Administrator) terminal (OpenVPN needs admin to
+add the tunnel route).
+
+**Build the profile.** Copy `services/vpn/kyber.ovpn.example` → `kyber.ovpn` and paste the VyOS CA
+into the `<ca>…</ca>` block. Router SSH is VPN-only (chicken-and-egg), so bootstrap the CA from the
+**committed snapshot** rather than the box: take the `pki ca ca-vpn certificate "MIIDnz…"` base64 in
+`vyos/snapshot-config.boot` and wrap it as `-----BEGIN CERTIFICATE-----` / `-----END CERTIFICATE-----`.
+(With console or an existing VPN session: `show pki ca ca-vpn pem` on `kyber-rtr`.)
+
+**Run it** (§1): Linux `sudo openvpn --config kyber.ovpn`; Windows — import the file into the GUI and
+**Connect**, or elevated `& "C:\Program Files\OpenVPN\bin\openvpn.exe" --config kyber.ovpn`.
+
+**Output:**
+Works
+
 ## 1. Connect as an authorized user (N7.6)
 
-**Run on:** client
+**Run on:** the **external** client from §0 (Windows: import the `.ovpn` into the OpenVPN GUI and
+Connect, or an **elevated** `openvpn.exe --config kyber.ovpn` — no `sudo`)
 
 ```
 sudo openvpn --config kyber.ovpn          # prompts username/password; log in as alice (∈ vpn-users)
@@ -25,6 +50,9 @@ sudo openvpn --config kyber.ovpn          # prompts username/password; log in as
 
 **Expect:** `Initialization Sequence Completed`; the client gets a `10.7.99.x` tunnel address and
 an `fd07:99::x` address (`ip addr show tun0`).
+
+**Output:**
+Works
 
 ## 2. Authorization is enforced — non-member rejected
 
@@ -36,6 +64,9 @@ sudo openvpn --config kyber.ovpn          # log in as dave (∉ vpn-users)
 
 **Expect:** `AUTH_FAILED` — the bind may succeed but the `memberOf=cn=vpn-users,…` clause in the
 SearchFilter fails, so authorization is denied. (Confirms auth ≠ just a valid password.)
+
+**Output:**
+Works
 
 ## 3. Tunnel reaches the company networks (split-tunnel scope)
 

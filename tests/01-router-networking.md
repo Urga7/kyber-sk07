@@ -206,8 +206,10 @@ show dhcp server leases          # DMZ: app-01=.10 app-02=.11 mon=.20 ldap=.30 (
 show dhcpv6 server leases        # DMZ6 reservations ::10/::11/::20/::30; INTERNAL6 in 9a::100-1ff
 ```
 
-**Expect:** DMZ servers hold their reserved v4+v6 addresses; internal clients hold dynamic-pool
-addresses. (Reservations are keyed MAC→IP for v4, DUID-LL `00:03:00:01:`+MAC for v6.)
+**Expect:** internal clients hold dynamic-pool addresses *here*. The DMZ reservations (MAC→IP for
+v4, DUID-LL `00:03:00:01:`+MAC for v6) are honoured, but the DMZ subnet has **no dynamic range**, so
+they are Kea **host reservations, not leases** and do **not** appear in this view — the host-side
+check below is the proof.
 
 **Output:**
 ```
@@ -229,7 +231,7 @@ vyos@kyber-rtr:~$
 
 ```
 ip -br addr show ens160          # 192.168.7.10/24 + 2001:1470:fffd:99::10/64
-resolvectl status ens160 | grep -i dhcp     # or: networkctl status ens160  -> DHCPv4/DHCPv6 used
+networkctl status ens160                    # Address: "192.168.7.10 (DHCP4 via 192.168.7.1)" + DHCP6 DUID-LL = reservation via DHCP, not static
 ```
 
 **Expect:** `.10` / `::10` present and obtained via DHCP (not a hard-coded netplan static).
@@ -363,8 +365,17 @@ chronyc sources                          # the row for 192.168.7.1 is a selected
 chronyc tracking                         # "Reference ID" / "Leap status: Normal"
 ```
 
-**Expect:** the host syncs to `kyber-rtr` (`192.168.7.1`). On internal hosts the peer is `10.7.0.1`.
-The router itself upstreams to `ntp1/ntp2.arnes.si` + pool servers (snapshot `service ntp`).
+**Expect:** the router (`192.168.7.1` on DMZ, `10.7.0.1` on internal) should appear as a selected
+source (`^*`/`^+`).
+
+> **Finding (this run):** `kyber-app-01` instead syncs to **public pool servers** — `192.168.7.1`
+> is absent from `chronyc sources`. DHCP advertises it (see §5 `networkctl` → `NTP: 192.168.7.1`),
+> but the host's chrony isn't consuming it. Confirm the **relay itself** answers with a direct probe
+> — `sudo chronyd -Q -t 3 'server 192.168.7.1 iburst'` (prints an offset line iff the VyOS relay
+> responds) — then point the client at it (`server 192.168.7.1 iburst` in `/etc/chrony/chrony.conf`,
+> or enable DHCP-sourced NTP) so N5.2 is actually demonstrated.
+
+The router upstreams to `ntp1/ntp2.arnes.si` + pool servers (snapshot `service ntp`).
 
 **Output:**
 
