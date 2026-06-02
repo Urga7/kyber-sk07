@@ -22,6 +22,9 @@ curl -s 'http://127.0.0.1:9090/api/v1/targets' | grep -o '"health":"[a-z]*"' | s
 `kyber-ldap`, and `kyber-app-02` if added) and the `snmp-vyos` job. A `down` node means
 node_exporter isn't running there or its `*.kyber.local` name doesn't resolve from mon.
 
+**Output:**
+As expected
+
 ## 2. SNMP metrics flowing from the router (N8 → S5)
 
 **Run on:** `kyber-mon`
@@ -36,6 +39,19 @@ curl -s 'http://127.0.0.1:9090/api/v1/query?query=ifHCInOctets' | head -c 400
 **Expect:** non-empty `ifHCInOctets` samples for the router's interfaces (the WAN/throughput data
 the Grafana panels graph).
 
+**Output:**
+```
+kyber@kyber-mon:~$ # direct exporter proxy walk of the router (source = mon, which the kyber-ro ACL allows)
+curl -s 'http://127.0.0.1:9116/snmp?target=192.168.7.1&module=if_mib&auth=kyber_v2' | grep -m3 ifHCInOctets
+# HELP ifHCInOctets The total number of octets received on the interface, including framing characters - 1.3.6.1.2.1.31.1.1.1.6
+# TYPE ifHCInOctets counter
+ifHCInOctets{ifAlias="DMZ-Network",ifDescr="eth2",ifIndex="4",ifName="eth2"} 1.24601119e+08
+kyber@kyber-mon:~$ # the same counters in Prometheus
+curl -s 'http://127.0.0.1:9090/api/v1/query?query=ifHCInOctets' | head -c 400
+{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"ifHCInOctets","ifAlias":"DMZ-Network","ifDescr":"eth2","ifIndex":"4","ifName":"eth2","instance":"192.168.7.1","job":"snmp-vyos"},"value":[1780432448.864,"124606624"]},{"metric":{"__name__":"ifHCInOctets","ifAlias":"IPv6-Only-Network","ifDescr":"eth3","ifIndex":"5","ifName":"eth3","instance":"192.168.7.1","job":"snmpkyber@kyber-mon:~$
+kyber@kyber-mon:~$
+```
+
 ## 3. Short polling interval (brief: "sensibly short intervals")
 
 **Run on:** `kyber-mon`
@@ -45,6 +61,9 @@ grep -E 'scrape_interval|evaluation_interval' /etc/prometheus/prometheus.yml
 ```
 
 **Expect:** `scrape_interval: 15s` (≤30s as the brief asks).
+
+**Output:**
+As expected
 
 ## 4. Grafana over HTTPS with a real cert + live data (S5.3, S5.4, S5.5)
 
@@ -71,6 +90,9 @@ sudo apt update                          # pulls bytes through eth0 -> WAN-throu
 yes >/dev/null & sleep 20; kill %1       # CPU spike visible on that node's dashboard
 ```
 
+**Output:**
+As expected
+
 ## 5. ntopng — NetFlow top-talkers (S6.1, S6.2)
 
 **Run on:** `kyber-mon`
@@ -86,9 +108,12 @@ the UI:
 
 ```
 # on kyber-mon: outbound download crosses eth2->eth0
-curl -o /dev/null https://speed.hetzner.de/100MB.bin
-curl -6 -o /dev/null https://speed.hetzner.de/100MB.bin     # IPv6 flow -> dual-stack
+curl -o /dev/null https://ash-speed.hetzner.com/100MB.bin
+curl -6 -o /dev/null https://ash-speed.hetzner.com/100MB.bin     # IPv6 flow -> dual-stack
 ```
+
+**Output:**
+As expected
 
 **Run on:** a CA-trusting client
 
@@ -99,6 +124,9 @@ curl -s -o /dev/null -w '%{http_code}\n' https://ntopng.kyber.local/    # 200/30
 **Expect:** in ntopng **Hosts → Top Hosts** / **Flows**, the downloads appear with per-flow byte
 counts; the `curl -6` shows as an IPv6 flow (dual-stack, S6.2). ntopng publishes at
 `https://ntopng.kyber.local` with a valid FreeIPA cert. Screenshot top-talkers for the report.
+
+**Output:**
+As expected
 
 > **Scope note:** Grafana and ntopng are **internal/VPN-only** — they are not part of the WAN
 > publish. From outside they must be unreachable (the SNI-edge `geo` gate over IPv4; verify the
