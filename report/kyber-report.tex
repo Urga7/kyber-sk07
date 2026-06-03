@@ -167,8 +167,7 @@ The router runs the usual ``general settings'' a company needs, all centralised 
   \item[DNS forwarding \& split DNS] The router is the resolver for every internal segment.
     Queries for \code{kyber.local} (and the DMZ reverse zone) are forwarded to the internal
     FreeIPA DNS at \code{192.168.7.30}, which returns private addresses; everything else
-    goes to public upstream resolvers. This is the mechanism behind ``names resolve to
-    private IPs inside.''
+    goes to public upstream resolvers.
   \item[NTP relay] The router synchronises to public pools and re-serves time to the
     internal, DMZ, IPv6-only, and VPN clients.
   \item[SNMP agent] A read-only SNMPv2c agent (community \code{kyber-ro}) exposes interface
@@ -303,7 +302,7 @@ The customer-facing service is a \textbf{REST API} built with FastAPI (Python) o
 SQLAlchemy and \textbf{PostgreSQL}. It exposes two related resources in a classic
 one-to-many relationship --- \textbf{customers} and their \textbf{orders} (deleting a
 customer cascades to their orders) --- with full create/read/update/delete operations on
-each. Data lives in PostgreSQL, so it survives restarts.
+each.
 
 Three behaviours are worth highlighting:
 
@@ -344,8 +343,7 @@ consensus store; its consumer is \textbf{Patroni}, which manages PostgreSQL as a
 \textbf{auto-failover primary plus hot standby} with streaming replication. Patroni records
 leadership in etcd, so there is never a split brain, and if the primary node fails the
 standby is promoted automatically. The API connects with a multi-host database URL and
-always lands on whichever node is currently primary --- no manual intervention. This removes
-what was previously a single database server as a point of failure. All of this traffic is
+always lands on whichever node is currently primary --- no manual intervention. All of this traffic is
 internal to the DMZ and secured with FreeIPA-issued certificates.
 
 \section{Publishing Services to the Outside World}
@@ -402,31 +400,5 @@ and the write-authorisation cases).
 The \textbf{IPv6-only segment} carries \code{kyber-ipv6}, a host with \emph{no IPv4 stack at
 all}. It auto-configures a ULA address by SLAAC and reaches the internet purely over IPv6
 through NPTv6 (Section~\ref{sec:addr}).
-
-\section{Operating the Environment}
-\label{sec:ops}
-
-A few things to know when you take over:
-
-\begin{itemize}
-  \item \textbf{Reaching things.} Management is VPN-only: bring up the VPN, then SSH to a
-        host directly or hop through the router as a jump host. Inside, rely on
-        \code{kyber.local} names --- they resolve to the right private addresses.
-  \item \textbf{Change management.} The router's running configuration is kept as a redacted
-        export --- private keys and password hashes removed --- refreshed after every change,
-        so there is always an up-to-date copy that holds no secrets. Each host's build is
-        recorded step by step, so any box can be rebuilt from scratch.
-  \item \textbf{Secrets.} Service passwords stay in root-owned files on each host and never
-        leave it; only public material, such as the CA certificate, is shared.
-\end{itemize}
-
-\paragraph{Not built (and why).} A few \emph{optional} features were intentionally left out
-of scope, called out here so nobody goes looking for them: \textbf{HTTP/3 (QUIC)} and a
-\textbf{GraphQL} mirror of the API, an \textbf{IDS/IPS} (Suricata), and \textbf{public DNS}
-(there is no registered domain, so external clients use a local hosts file). Everything else
-described above --- segmentation, dual-stack addressing, NAT and NPTv6, DHCP/DHCPv6/SLAAC,
-split DNS, NTP, the dual-stack firewall, the LDAP-authenticated VPN, the TLS REST API with
-content negotiation and HA, the FreeIPA directory, SNMP-based monitoring with Grafana,
-NetFlow analysis, and the RAFT cluster --- is built and running.
 
 \end{document}
