@@ -18,6 +18,7 @@
 \usepackage{array}
 \usepackage{xcolor}
 \usepackage{enumitem}
+\usepackage{float}          % [H] specifier: pin a table exactly where it is written
 \usepackage{svg}            % \includesvg -- needs Inkscape + --shell-escape (see header)
 \usepackage[hidelinks]{hyperref}
 
@@ -40,13 +41,9 @@
 \section{Introduction}
 
 kyber is the in-house network for a fictional start-up: a complete company network and
-service stack with segmented users and servers, dual-stack IPv4 and IPv6 throughout, an
-on-prem user directory, a TLS-protected REST service backed by a database, monitoring,
+service stack with segmented users and servers, dual-stack IPv4 and IPv6 throughout, a user directory, a TLS-protected REST service backed by a database, monitoring,
 remote VPN access, a RAFT-based highly-available service, and a documented firewall.
-Everything is hosted on the team's own ESXi infrastructure --- there are no cloud-hosted
-services.
 
-Two ideas are worth absorbing before anything else, because they shape day-to-day work:
 
 \begin{itemize}
   \item \textbf{Management is VPN-only.} The router does not accept SSH from the
@@ -203,7 +200,7 @@ intent is summarised first.
         types that IPv6 genuinely needs are permitted.
 \end{itemize}
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \footnotesize
 \setlength{\tabcolsep}{4pt}
