@@ -1,0 +1,442 @@
+% kyber (sk07) -- infrastructure hand-off report
+%
+% BUILD: this document embeds the topology diagram with \includesvg, which needs
+%        Inkscape on PATH and shell-escape enabled:
+%            cd report && latexmk -pdf -shell-escape kyber-report.tex
+%        If Inkscape is unavailable, pre-convert the SVG to PDF once
+%        (e.g. `inkscape ../kyber-network-topology.svg --export-filename=topology.pdf`
+%        or `rsvg-convert -f pdf -o topology.pdf ../kyber-network-topology.svg`)
+%        and switch the figure to the commented \includegraphics fallback in section 2.
+%
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{svg}            % \includesvg -- needs Inkscape + --shell-escape (see header)
+\usepackage[hidelinks]{hyperref}
+
+\newcommand{\code}[1]{\texttt{#1}}
+\setlist{nosep,leftmargin=1.4em}
+\renewcommand{\arraystretch}{1.15}
+
+\title{\textbf{kyber (sk07)} \\[2pt] \large Infrastructure Overview \& Hand-off Report}
+\author{Group sk07 --- Infrastructure Team}
+\date{June 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+\textbf{kyber} is a multi-segment, fully dual-stack (IPv4 + IPv6) company network built
+from scratch on VMware ESXi: a VyOS router/firewall, a DMZ of Linux servers, an internal
+user segment, an IPv6-only segment, and a small set of customer- and admin-facing
+services. This document describes the system \emph{as it runs today} --- its structure,
+the function of each component, and the reasoning behind the main design choices --- for a
+colleague joining the team. It is deliberately high-level: step-by-step build instructions
+live in the per-host \emph{runbooks} in this repository, and the canonical task list and
+acceptance criteria live in \code{kyber-project-plan.md}. The live router configuration is
+captured (with secrets redacted) in \code{vyos/snapshot-config.boot}.
+\end{abstract}
+
+\tableofcontents
+\bigskip
+\hrule
+
+\section{Introduction}
+
+kyber is the in-house network for a fictional start-up. The brief was to stand up a
+complete company network and service stack: segmented users and servers, dual-stack IPv4
+and IPv6 throughout, an on-prem user directory, a TLS-protected REST service backed by a
+database, monitoring, remote VPN access, a RAFT-based highly-available service, and a
+documented firewall. Everything is hosted on the team's own ESXi infrastructure --- there
+are no cloud-hosted services.
+
+Two ideas are worth absorbing before anything else, because they shape day-to-day work:
+
+\begin{itemize}
+  \item \textbf{Management is VPN-only.} The router does not accept SSH from the
+        internet. To administer any box you first bring up the VPN
+        (Section~\ref{sec:vpn}); the router then doubles as an SSH \emph{jump host} to
+        reach DMZ and internal machines that have no public address
+        (\code{ssh -J vyos@<router> <user>@<host>}).
+  \item \textbf{Names resolve differently inside and outside (split DNS).} Inside the
+        network, \code{api.kyber.local} and friends resolve to \emph{private} addresses
+        and traffic never leaves the LAN; from outside, the same name reaches the one
+        public address. This is intentional and is the reason most testing is done from
+        the internal workstations.
+\end{itemize}
+
+The internal domain is \code{kyber.local}. The ISP (the lab, ``LRK'') assigned one public
+IPv4 address and one IPv6 \code{/62} block.
+
+\section{Architecture at a Glance}
+\label{sec:arch}
+
+The network is built around a single VyOS 1.4.4 router, \code{kyber-rtr}, which owns four
+network interfaces --- one per segment --- and enforces all routing, NAT, and firewalling
+between them. Figure~\ref{fig:topology} shows the segments and how they connect to the
+outside world.
+
+\begin{figure}[htbp]
+  \centering
+  % Requires Inkscape on PATH and compilation with --shell-escape (see file header).
+  \includesvg[width=\linewidth]{../kyber-network-topology.svg}
+  % Fallback without Inkscape: pre-convert the SVG to topology.pdf and use instead:
+  % \includegraphics[width=\linewidth]{topology.pdf}
+  \caption{kyber sk07 network topology: the VyOS router \code{kyber-rtr} joins the WAN,
+           the internal user segment, the DMZ server segment, and the IPv6-only segment.}
+  \label{fig:topology}
+\end{figure}
+
+The design follows a classic segmentation: \textbf{users and servers are kept apart}. End
+users live on the \emph{internal} segment; all servers live in the \emph{DMZ}; a dedicated
+\emph{IPv6-only} segment demonstrates ULA addressing with prefix translation. The router
+treats each interface as a firewall \emph{zone} (\code{WAN}, \code{INTERNAL}, \code{DMZ},
+\code{V6ONLY}), plus \code{LOCAL} for the router itself and \code{VPN} for remote clients.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\linewidth}{@{}l l l l l X@{}}
+\toprule
+\textbf{VM} & \textbf{OS} & \textbf{Segment} & \textbf{IPv4} & \textbf{IPv6} & \textbf{Roles} \\
+\midrule
+\code{kyber-rtr}    & VyOS 1.4.4    & all four   & per-iface (Tbl.~\ref{tab:addr}) & per-iface & Router, firewall, NAT/NPTv6, DHCP, DNS forwarder, NTP, VPN, SNMP, NetFlow export \\
+\code{kyber-app-01} & Ubuntu Server & DMZ        & 192.168.7.10  & \code{::10}  & REST API, PostgreSQL (Patroni primary), etcd, nginx, keepalived MASTER \\
+\code{kyber-app-02} & Ubuntu Server & DMZ        & 192.168.7.11  & \code{::11}  & REST API, PostgreSQL (Patroni standby), etcd, nginx, keepalived BACKUP \\
+\textit{API VIP}    & ---           & DMZ        & 192.168.7.100 & \code{::100} & Floating service address; \code{api.kyber.local} resolves here \\
+\code{kyber-mon}    & Ubuntu Server & DMZ        & 192.168.7.20  & \code{::20}  & Prometheus, Grafana, ntopng, etcd witness \\
+\code{kyber-ldap}   & AlmaLinux 10  & DMZ        & 192.168.7.30  & \code{::30}  & FreeIPA: LDAP + Kerberos + CA + authoritative DNS \\
+\code{kyber-ws-01}  & Ubuntu Desktop& internal   & dynamic       & dynamic      & Linux end-user workstation \\
+\code{kyber-ws-02}  & Windows Server& internal   & dynamic       & dynamic      & Windows end-user workstation \\
+\code{kyber-ipv6}   & Ubuntu Server & IPv6-only  & --- none ---  & SLAAC ULA    & Demonstrates the IPv6-only + NPTv6 segment \\
+\bottomrule
+\end{tabularx}
+\caption{Virtual-machine inventory. The IPv6 suffix column is under the DMZ prefix
+         \code{2001:1470:fffd:99::/64}; internal workstations lease from
+         \code{2001:1470:fffd:9a::/64}. Heterogeneous operating systems (VyOS, Ubuntu,
+         AlmaLinux, Windows) are used by design.}
+\label{tab:vms}
+\end{table}
+
+All DMZ servers receive \textbf{fixed} addresses, but via DHCP \emph{reservations}
+(MAC-to-IP bindings), not hand-configured static addresses --- so a rebuilt VM always comes
+back on the same address without per-host editing. Internal workstations take ordinary
+dynamic leases.
+
+\section{Addressing \& Core Router Services}
+\label{sec:addr}
+
+The assigned IPv6 block \code{2001:1470:fffd:98::/62} splits into exactly four \code{/64}
+networks, used as the brief requires: the first for the internet uplink, two for the
+dual-stack LAN segments, and the last as the outer prefix for the IPv6-only segment's
+prefix translation. Table~\ref{tab:addr} is the master addressing plan.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{5pt}
+\begin{tabularx}{\linewidth}{@{}l l l l X@{}}
+\toprule
+\textbf{Segment} & \textbf{IPv4 (router IP)} & \textbf{IPv6 \code{/64} (router IP)} & \textbf{Iface} & \textbf{IPv6 auto-config} \\
+\midrule
+WAN / uplink & 88.200.24.237/25 (GW .129) & \code{2001:1470:fffd:98::2} (GW \code{::1}) & eth0 & static \\
+Internal     & 10.7.0.0/24 (\code{.1})    & \code{2001:1470:fffd:9a::/64} (\code{::1})  & eth1 & DHCPv6 (stateful) \\
+DMZ          & 192.168.7.0/24 (\code{.1}) & \code{2001:1470:fffd:99::/64} (\code{::1})  & eth2 & DHCPv6 (stateful) \\
+IPv6-only    & --- none ---               & ULA \code{fd07:1:1:1::/64} (\code{::1})     & eth3 & SLAAC \\
+\bottomrule
+\end{tabularx}
+\caption{Master address plan. The NPTv6 \emph{outer} prefix \code{2001:1470:fffd:9b::/64}
+         is not assigned to any interface; it is the public face of the IPv6-only ULA.}
+\label{tab:addr}
+\end{table}
+
+The router runs the usual ``general settings'' a company needs, all centralised on
+\code{kyber-rtr}:
+
+\begin{description}[leftmargin=1.4em,style=nextline]
+  \item[NAT44 (outbound internet)] Both LAN subnets are source-masqueraded behind the
+    single public IPv4 on egress, so users and servers reach the internet while presenting
+    one address.
+  \item[NPTv6 (IPv6 prefix translation)] The IPv6-only segment uses private ULA addresses
+    internally; on the way out, the router rewrites the ULA prefix
+    \code{fd07:1:1:1::/64} to the public \code{2001:1470:fffd:9b::/64} (RFC~6296), and the
+    reverse on the way back. This gives IPv6-only hosts internet reach without NAT44-style
+    port translation.
+  \item[DHCP / DHCPv6 / SLAAC] IPv4 is served by DHCP on both LANs (a dynamic pool
+    \code{10.7.0.100--200} internally; reservations in the DMZ). For IPv6, both dual-stack
+    LANs use \textbf{stateful DHCPv6} (router advertisements set the \emph{managed} flag and
+    suppress autonomous addressing), while \textbf{SLAAC} is used on the IPv6-only segment
+    (eth3 advertises its ULA prefix autonomously). This satisfies the brief's ``at least
+    one SLAAC, at least one DHCPv6'' requirement.
+  \item[DNS forwarding \& split DNS] The router is the resolver for every internal segment.
+    Queries for \code{kyber.local} (and the DMZ reverse zone) are forwarded to the internal
+    FreeIPA DNS at \code{192.168.7.30}, which returns private addresses; everything else
+    goes to public upstream resolvers. This is the mechanism behind ``names resolve to
+    private IPs inside.''
+  \item[NTP relay] The router synchronises to public pools and re-serves time to the
+    internal, DMZ, IPv6-only, and VPN clients.
+  \item[SNMP agent] A read-only SNMPv2c agent (community \code{kyber-ro}) exposes interface
+    counters and system metrics, \textbf{restricted to the monitoring host only}
+    (\code{kyber-mon}) on both stacks.
+  \item[NetFlow export] All four interfaces export NetFlow~v9 flow records to
+    \code{kyber-mon} for traffic analysis (Section~\ref{sec:mon}).
+\end{description}
+
+\section{Firewall \& Security Posture}
+\label{sec:fw}
+
+The firewall is \textbf{zone-based and fully dual-stack}: every rule is written for both
+IPv4 and IPv6, since the network is dual-stack end to end. The default action for every
+zone pair is \textbf{drop}; a single global stateful rule accepts established/related return
+traffic and drops invalid packets, so each ruleset only has to list the \emph{new}
+connections it intends to permit. The full per-rule rationale is maintained in
+\code{network/firewall-policy.md}; the intent is summarised here.
+
+\begin{itemize}
+  \item \textbf{From the internet (WAN), almost nothing is allowed in.} Only what
+        Table~\ref{tab:exposure} lists is reachable. The internal segment is never reachable
+        from the WAN; the DMZ is reachable only on the published service port.
+  \item \textbf{Users (internal) reach out freely} to the internet, and reach the DMZ only
+        on the specific service ports they need (HTTPS, SSH for admins, DNS, LDAPS).
+  \item \textbf{Servers (DMZ) are constrained.} They may reach the internet for updates and
+        time, but they \textbf{cannot initiate connections back to the user segment} --- if
+        a server were compromised, this blocks lateral movement to user machines. That drop
+        is logged.
+  \item \textbf{IPv6 hygiene.} WAN ingress drops spoofed/bogon sources, and crucially drops
+        inbound IPv6 Router Advertisements, so an outside party cannot hijack the default
+        route of LAN hosts (rogue-RA protection). The neighbor-discovery and error ICMPv6
+        types that IPv6 genuinely needs are permitted.
+\end{itemize}
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}l l X@{}}
+\toprule
+\textbf{Exposed} & \textbf{Service} & \textbf{Notes} \\
+\midrule
+\code{tcp/443}  & REST API (HTTPS) & IPv4 via DNAT to the VIP; IPv6 direct to the VIP. Dashboards are \emph{not} exposed. \\
+\code{udp/1194} & OpenVPN          & The only management entry point to the network. \\
+ICMP echo       & ping             & Rate-limited, both stacks, for reachability checks. \\
+\bottomrule
+\end{tabularx}
+\caption{Everything reachable from the public internet. All other inbound traffic is
+         dropped (and security-relevant drops are logged).}
+\label{tab:exposure}
+\end{table}
+
+\section{Remote-Access VPN}
+\label{sec:vpn}
+
+Remote access is provided by \textbf{OpenVPN}, run natively on the VyOS router (no separate
+appliance). It listens on \code{udp/1194} and gives connected clients a dual-stack tunnel
+(\code{10.7.99.0/24} and \code{fd07:99::/64}). It is a \textbf{split tunnel}: only routes to
+the company's own LAN and DMZ subnets are pushed, so a remote worker's general internet
+traffic does not transit the company.
+
+Authentication is tied to the directory: users log in with their \textbf{FreeIPA username
+and password}, validated live over LDAPS, and are authorised by membership of the
+\code{vpn-users} group. There are no per-user keys or certificates to issue or revoke ---
+\textbf{off-boarding is a single directory action} (disable the user or remove them from
+the group, and their next connection fails). The tunnel's control channel is secured by its
+own small certificate authority generated on the router; note this is a \emph{separate} CA
+from the FreeIPA one used everywhere else (Section~\ref{sec:idm}). Because router SSH is
+closed to the WAN, the VPN is the front door for all administration.
+
+\section{Identity \& DNS --- FreeIPA}
+\label{sec:idm}
+
+The user directory is \textbf{FreeIPA} on \code{kyber-ldap}, chosen because it bundles, in
+one product, everything the rest of the build leans on: an \textbf{LDAP} directory,
+\textbf{Kerberos}, an internal \textbf{certificate authority}, and an integrated
+\textbf{authoritative DNS} (BIND) for \code{kyber.local}.
+
+\begin{itemize}
+  \item \textbf{DNS.} FreeIPA is authoritative for \code{kyber.local} and the DMZ reverse
+        zone, holding the A/AAAA records for every server and the service names
+        (\code{api}, \code{grafana}, \code{ntopng}). The router forwards internal queries
+        here --- this is the ``private'' side of split DNS.
+  \item \textbf{Certificate authority.} The FreeIPA CA issues the TLS certificates for
+        \emph{all} internal services (the REST API, Grafana, ntopng, LDAPS, and the etcd /
+        PostgreSQL replication layer). Certificates are requested and auto-renewed by
+        \code{certmonger} on each host, so nothing is hand-managed or self-signed. The
+        public CA certificate is committed at \code{dmz-ldap/kyber-ipa-ca.crt}; trusting it
+        is the one setup step every client needs.
+\end{itemize}
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}l l l@{}}
+\toprule
+\textbf{User} & \textbf{Groups} & \textbf{Purpose} \\
+\midrule
+\code{alice} & \code{admins}, \code{vpn-users}      & Administrator; can VPN in \\
+\code{bob}   & \code{vpn-users}, \code{ipausers}    & Ordinary VPN user \\
+\code{carol} & \code{api-writers}                   & Authorised to call REST write endpoints \\
+\code{dave}  & \code{ipausers}                      & Plain user --- the ``denied'' test case \\
+\code{luka}, \code{urban} & \code{vpn-users}        & Real team members' VPN accounts \\
+\bottomrule
+\end{tabular}
+\caption{Directory users and the groups that gate access. \code{vpn-users} controls VPN
+         login; \code{api-writers} controls REST write access. \code{dave} belongs to
+         neither, which makes him the standing negative test for both gates.}
+\label{tab:users}
+\end{table}
+
+\section{The REST Service}
+\label{sec:api}
+
+The customer-facing service is a \textbf{REST API} built with FastAPI (Python) over
+SQLAlchemy and \textbf{PostgreSQL}. It exposes two related resources in a classic
+one-to-many relationship --- \textbf{customers} and their \textbf{orders} (deleting a
+customer cascades to their orders) --- with full create/read/update/delete operations on
+each. Data lives in PostgreSQL, so it survives restarts.
+
+Three behaviours satisfy specific requirements of the brief:
+
+\begin{description}[leftmargin=1.4em,style=nextline]
+  \item[Content negotiation] The same resource is returned as \textbf{JSON}, \textbf{XML},
+    or an \textbf{HTML} table, selected by the request's \code{Accept} header --- three
+    formats from one code path.
+  \item[Authentication \& authorisation] Read operations (\code{GET}) are public. Write
+    operations (\code{POST}/\code{PUT}/\code{DELETE}) require HTTP Basic credentials that
+    \textbf{bind successfully to FreeIPA over LDAPS} \emph{and} belong to the
+    \code{api-writers} group. So \code{carol} can write, \code{dave} is forbidden (403),
+    and an unauthenticated write is challenged (401).
+  \item[Transport] \textbf{nginx} terminates TLS in front of the application on
+    \code{443} with a FreeIPA-issued certificate, offers \textbf{HTTP/2} alongside
+    HTTP/1.1, and listens on \textbf{both IPv4 and IPv6}.
+\end{description}
+
+The application source is version-controlled under \code{dmz-app-01/app/}; the database
+password and directory settings are supplied from an environment file on the host and are
+never committed.
+
+\section{High Availability \& the Data Tier (RAFT)}
+\label{sec:ha}
+
+The service is designed to survive the loss of a node, at both the web tier and the data
+tier.
+
+\textbf{Web tier.} Two application nodes (\code{kyber-app-01}, \code{kyber-app-02}) each run
+the API behind nginx. A \textbf{keepalived} virtual IP (\code{192.168.7.100} /
+\code{2001:1470:fffd:99::100}) floats between them, and \code{api.kyber.local} resolves to
+that VIP. The VIP-holder's nginx load-balances \textbf{active-active} across both backends,
+so a single node or process failure does not interrupt service --- the VIP moves (or the
+dead backend is simply skipped) within seconds.
+
+\textbf{Data tier (RAFT).} A three-node \textbf{etcd} cluster runs on \code{kyber-app-01},
+\code{kyber-app-02}, and \code{kyber-mon} (the third acts purely as a voting
+\emph{witness}, so losing one application node never costs quorum). etcd is the RAFT
+consensus store; its consumer is \textbf{Patroni}, which manages PostgreSQL as an
+\textbf{auto-failover primary plus hot standby} with streaming replication. Patroni records
+leadership in etcd, so there is never a split brain, and if the primary node fails the
+standby is promoted automatically. The API connects with a multi-host database URL and
+always lands on whichever node is currently primary --- no manual intervention. This is the
+brief's ``RAFT on at least three machines, highly available'' requirement, and it removes
+what was previously a single database server as a point of failure. All of this traffic is
+internal to the DMZ and secured with FreeIPA-issued certificates.
+
+\section{Publishing Services to the Outside World}
+\label{sec:publish}
+
+The company owns exactly one public IPv4 address but wants name-based access to more than
+one service, so the edge does two different things per stack:
+
+\begin{itemize}
+  \item \textbf{IPv4} --- the router performs \textbf{destination NAT}: inbound
+        \code{88.200.24.237:443} is forwarded to the internal API VIP. On the VIP, a
+        lightweight \textbf{SNI edge} (nginx in TLS-passthrough mode) reads the requested
+        hostname from the TLS handshake and routes the still-encrypted connection to the
+        right backend. One public address and one port thus serve multiple named services,
+        with end-to-end TLS preserved (no certificates are moved to the edge).
+  \item \textbf{IPv6} --- no NAT is needed: every server already has a globally routable
+        address, so the public DNS name points straight at it and the router simply routes.
+\end{itemize}
+
+Security posture at the edge: \textbf{only the REST API is published}. The Grafana and
+ntopng dashboards are administrative and are deliberately kept off the public internet on
+both stacks (closed at the SNI edge on IPv4, and at the perimeter firewall on IPv6); internal
+and VPN users reach them normally. Because there is no registered public domain, genuinely
+external clients map the service names to the public address via a local hosts file --- the
+report notes this rather than configuring public DNS.
+
+\section{Monitoring \& Flow Analysis}
+\label{sec:mon}
+
+Monitoring lives on \code{kyber-mon} and has two complementary halves:
+
+\begin{itemize}
+  \item \textbf{Metrics --- Prometheus + Grafana.} Prometheus scrapes at a short interval:
+        a \code{node\_exporter} on every Linux host (CPU, memory, disk) and an
+        \code{snmp\_exporter} that polls the router's interface counters via the
+        \code{kyber-ro} community. \textbf{Grafana} presents this --- per-interface WAN
+        throughput over time, and host CPU/memory --- published over HTTPS at
+        \code{grafana.kyber.local} with a FreeIPA certificate.
+  \item \textbf{Flows --- ntopng.} The router's NetFlow~v9 export is received by a collector
+        and rendered by \textbf{ntopng} (top-talkers, per-flow byte counts), published the
+        same way at \code{ntopng.kyber.local}. This gives the network administrator a view
+        of \emph{who is talking to whom}, complementing Prometheus's \emph{how loaded is
+        each box}.
+\end{itemize}
+
+Both dashboards are internal/admin-only (Section~\ref{sec:publish}).
+
+\section{Clients \& the IPv6-only Segment}
+\label{sec:clients}
+
+Two end-user workstations on the internal segment satisfy the \textbf{heterogeneous-OS}
+requirement and double as the acceptance-test clients: \code{kyber-ws-01} (Ubuntu Desktop)
+and \code{kyber-ws-02} (Windows Server with Desktop Experience). Both take dynamic
+leases, trust the FreeIPA CA, and are used to exercise the REST API end to end (content
+negotiation, HTTP/2, IPv6 reachability, and the write-authorisation cases).
+
+The \textbf{IPv6-only segment} is demonstrated by \code{kyber-ipv6}, a host with \emph{no
+IPv4 stack at all}. It auto-configures a ULA address by SLAAC and reaches the internet
+purely over IPv6 through NPTv6 (Section~\ref{sec:addr}) --- proof that the ULA + prefix-
+translation design works for real outbound traffic.
+
+\section{Operating the Environment}
+\label{sec:ops}
+
+A few things to know when you take over:
+
+\begin{itemize}
+  \item \textbf{The repository is the documentation.} Each host has a numbered series of
+        runbooks (\code{00-}, \code{01-}, \dots) with the exact final-state configuration;
+        \code{kyber-project-plan.md} is the master task list and acceptance criteria, keyed
+        by IDs (\code{N6}, \code{S3.8}, \dots) that the runbooks cite. The \code{tests/}
+        directory holds paste-able acceptance checks for everything that is built.
+  \item \textbf{The router config is snapshotted, redacted.}
+        \code{vyos/snapshot-config.boot} is the live router configuration with secrets
+        (private keys, password hashes) stripped, refreshed via
+        \code{vyos/update-snapshot.sh} after every change. \textbf{Never commit a raw
+        \code{config.boot}} --- it contains cleartext private keys.
+  \item \textbf{Secrets live on the boxes, not in git.} Service passwords and the like are
+        in root-owned files on each host (for example the API's environment file); only
+        public material (such as the CA certificate) is committed.
+  \item \textbf{Reaching things.} Bring up the VPN, then SSH directly or hop via the router
+        as a jump host. Inside, rely on \code{kyber.local} names --- they resolve to the
+        right private addresses.
+\end{itemize}
+
+\paragraph{Not built (and why).} A handful of the brief's \emph{optional} items were left
+out of scope and are called out here so nobody goes looking for them: \textbf{HTTP/3
+(QUIC)} and a \textbf{GraphQL} mirror of the API, an \textbf{IDS/IPS} (Suricata), and
+\textbf{public DNS} (there is no registered domain, so external clients use a local hosts
+file). Everything else in the brief --- segmentation, dual-stack addressing, NAT and NPTv6,
+DHCP/DHCPv6/SLAAC, split DNS, NTP, the dual-stack firewall, the LDAP-authenticated VPN, the
+TLS REST API with content negotiation and HA, the FreeIPA directory, SNMP-based monitoring
+with Grafana, NetFlow analysis, and the RAFT cluster --- is built and verified.
+
+\end{document}

@@ -130,6 +130,15 @@ firewall {
                 }
                 protocol "tcp"
             }
+            rule 35 {
+                action "accept"
+                description "HTTP to FreeIPA CA — CRL/OCSP revocation (Schannel)"
+                destination {
+                    address "192.168.7.30"
+                    port "80"
+                }
+                protocol "tcp"
+            }
         }
         name INTERNAL-LOCAL {
             default-action "drop"
@@ -396,6 +405,15 @@ firewall {
                 action "accept"
                 destination {
                     port "636"
+                }
+                protocol "tcp"
+            }
+            rule 35 {
+                action "accept"
+                description "HTTP to FreeIPA CA — CRL/OCSP revocation (Schannel)"
+                destination {
+                    address "2001:1470:fffd:99::30"
+                    port "80"
                 }
                 protocol "tcp"
             }
