@@ -25,25 +25,13 @@
 \setlist{nosep,leftmargin=1.4em}
 \renewcommand{\arraystretch}{1.15}
 
-\title{\textbf{kyber (sk07)} \\[2pt] \large Infrastructure Overview \& Hand-off Report}
-\author{Group sk07 --- Infrastructure Team}
+\title{\textbf{Kyber (SK07)} \\[2pt] \large Infrastructure Overview \& Hand-off Report}
+\author{Group SK07}
 \date{June 2026}
 
 \begin{document}
 \maketitle
 
-\begin{abstract}
-\noindent
-\textbf{kyber} is a multi-segment, fully dual-stack (IPv4 + IPv6) company network built
-from scratch on VMware ESXi: a VyOS router/firewall, a DMZ of Linux servers, an internal
-user segment, an IPv6-only segment, and a small set of customer- and admin-facing
-services. This document describes the system \emph{as it runs today} --- its structure,
-the function of each component, and the reasoning behind the main design choices --- for a
-colleague joining the team. It is deliberately high-level: step-by-step build instructions
-live in the per-host \emph{runbooks} in this repository, and the canonical task list and
-acceptance criteria live in \code{kyber-project-plan.md}. The live router configuration is
-captured (with secrets redacted) in \code{vyos/snapshot-config.boot}.
-\end{abstract}
 
 \tableofcontents
 \bigskip
@@ -51,12 +39,12 @@ captured (with secrets redacted) in \code{vyos/snapshot-config.boot}.
 
 \section{Introduction}
 
-kyber is the in-house network for a fictional start-up. The brief was to stand up a
-complete company network and service stack: segmented users and servers, dual-stack IPv4
-and IPv6 throughout, an on-prem user directory, a TLS-protected REST service backed by a
-database, monitoring, remote VPN access, a RAFT-based highly-available service, and a
-documented firewall. Everything is hosted on the team's own ESXi infrastructure --- there
-are no cloud-hosted services.
+kyber is the in-house network for a fictional start-up: a complete company network and
+service stack with segmented users and servers, dual-stack IPv4 and IPv6 throughout, an
+on-prem user directory, a TLS-protected REST service backed by a database, monitoring,
+remote VPN access, a RAFT-based highly-available service, and a documented firewall.
+Everything is hosted on the team's own ESXi infrastructure --- there are no cloud-hosted
+services.
 
 Two ideas are worth absorbing before anything else, because they shape day-to-day work:
 
@@ -87,7 +75,7 @@ outside world.
 \begin{figure}[htbp]
   \centering
   % Requires Inkscape on PATH and compilation with --shell-escape (see file header).
-  \includesvg[width=\linewidth]{../kyber-network-topology.svg}
+  \includesvg[width=\linewidth, inkscapelatex=false]{../kyber-network-topology.svg}
   % Fallback without Inkscape: pre-convert the SVG to topology.pdf and use instead:
   % \includegraphics[width=\linewidth]{topology.pdf}
   \caption{kyber sk07 network topology: the VyOS router \code{kyber-rtr} joins the WAN,
@@ -136,7 +124,7 @@ dynamic leases.
 \label{sec:addr}
 
 The assigned IPv6 block \code{2001:1470:fffd:98::/62} splits into exactly four \code{/64}
-networks, used as the brief requires: the first for the internet uplink, two for the
+networks: the first for the internet uplink, two for the
 dual-stack LAN segments, and the last as the outer prefix for the IPv6-only segment's
 prefix translation. Table~\ref{tab:addr} is the master addressing plan.
 
@@ -175,8 +163,7 @@ The router runs the usual ``general settings'' a company needs, all centralised 
     \code{10.7.0.100--200} internally; reservations in the DMZ). For IPv6, both dual-stack
     LANs use \textbf{stateful DHCPv6} (router advertisements set the \emph{managed} flag and
     suppress autonomous addressing), while \textbf{SLAAC} is used on the IPv6-only segment
-    (eth3 advertises its ULA prefix autonomously). This satisfies the brief's ``at least
-    one SLAAC, at least one DHCPv6'' requirement.
+    (eth3 advertises its ULA prefix autonomously).
   \item[DNS forwarding \& split DNS] The router is the resolver for every internal segment.
     Queries for \code{kyber.local} (and the DMZ reverse zone) are forwarded to the internal
     FreeIPA DNS at \code{192.168.7.30}, which returns private addresses; everything else
@@ -198,13 +185,13 @@ The firewall is \textbf{zone-based and fully dual-stack}: every rule is written 
 IPv4 and IPv6, since the network is dual-stack end to end. The default action for every
 zone pair is \textbf{drop}; a single global stateful rule accepts established/related return
 traffic and drops invalid packets, so each ruleset only has to list the \emph{new}
-connections it intends to permit. The full per-rule rationale is maintained in
-\code{network/firewall-policy.md}; the intent is summarised here.
+connections it intends to permit. Table~\ref{tab:fw} is the full zone-pair matrix; the
+intent is summarised first.
 
 \begin{itemize}
-  \item \textbf{From the internet (WAN), almost nothing is allowed in.} Only what
-        Table~\ref{tab:exposure} lists is reachable. The internal segment is never reachable
-        from the WAN; the DMZ is reachable only on the published service port.
+  \item \textbf{From the internet (WAN), almost nothing is allowed in.} Only the \code{WAN}
+        rows of Table~\ref{tab:fw} are reachable. The internal segment is never reachable
+        from the WAN; the DMZ is reachable only on \code{tcp/443}.
   \item \textbf{Users (internal) reach out freely} to the internet, and reach the DMZ only
         on the specific service ports they need (HTTPS, SSH for admins, DNS, LDAPS).
   \item \textbf{Servers (DMZ) are constrained.} They may reach the internet for updates and
@@ -219,19 +206,35 @@ connections it intends to permit. The full per-rule rationale is maintained in
 
 \begin{table}[htbp]
 \centering
-\small
+\footnotesize
+\setlength{\tabcolsep}{4pt}
 \begin{tabularx}{\linewidth}{@{}l l X@{}}
 \toprule
-\textbf{Exposed} & \textbf{Service} & \textbf{Notes} \\
+\textbf{From $\rightarrow$ To} & \textbf{Allowed (IPv4 + IPv6)} & \textbf{Purpose} \\
 \midrule
-\code{tcp/443}  & REST API (HTTPS) & IPv4 via DNAT to the VIP; IPv6 direct to the VIP. Dashboards are \emph{not} exposed. \\
-\code{udp/1194} & OpenVPN          & The only management entry point to the network. \\
-ICMP echo       & ping             & Rate-limited, both stacks, for reachability checks. \\
+WAN $\rightarrow$ LOCAL      & ICMP echo (rate-limited); \code{udp/1194} & Ping; OpenVPN. No SSH from the internet. \\
+WAN $\rightarrow$ DMZ        & \code{tcp/443}                            & Published HTTPS: REST API + Grafana/ntopng dashboards. \\
+WAN $\rightarrow$ INTERNAL   & --- (drop, logged)                        & User segment never reachable from the internet. \\
+WAN $\rightarrow$ V6ONLY     & --- (drop)                                & No inbound to IPv6-only hosts. \\
+INTERNAL $\rightarrow$ WAN   & everything                                & Users' unrestricted internet access. \\
+INTERNAL $\rightarrow$ DMZ   & \code{tcp/443,22,636}; \code{tcp+udp/53}; \code{tcp/80}$\to$CA & Services, SSH admin, DNS, LDAPS, revocation checks. \\
+INTERNAL $\rightarrow$ LOCAL & \code{tcp/22}; \code{tcp+udp/53}; \code{udp/123,67}; ICMP echo & Router mgmt, DNS, NTP, DHCP, ping. \\
+DMZ $\rightarrow$ WAN        & \code{tcp/80,443}; \code{udp/123}; ICMP echo & OS/package updates, NTP, diagnostics. \\
+DMZ $\rightarrow$ INTERNAL   & --- (drop, logged)                        & Servers cannot initiate to users (limits lateral movement). \\
+DMZ $\rightarrow$ LOCAL      & \code{tcp+udp/53}; \code{udp/123}; \code{udp/161} (mon only); ICMP echo & DNS, NTP, SNMP polling. \\
+V6ONLY $\rightarrow$ WAN     & everything (IPv6)                         & IPv6-only internet egress via NPTv6. \\
+V6ONLY $\rightarrow$ LOCAL   & \code{tcp+udp/53}; \code{udp/123}; ICMPv6 & DNS, NTP, neighbour discovery. \\
+VPN $\rightarrow$ LOCAL      & \code{tcp/22}; \code{tcp+udp/53}; \code{udp/123} & Router mgmt, DNS, NTP. \\
+VPN $\rightarrow$ INTERNAL   & \code{tcp/22,3389}; ICMP echo             & SSH to Linux, RDP to Windows, ping. \\
+VPN $\rightarrow$ DMZ        & \code{tcp/443,22,636}                     & Services, SSH, LDAPS. \\
+LOCAL $\rightarrow$ any      & everything                                & Router-initiated traffic (NTP, DNS, updates). \\
 \bottomrule
 \end{tabularx}
-\caption{Everything reachable from the public internet. All other inbound traffic is
-         dropped (and security-relevant drops are logged).}
-\label{tab:exposure}
+\caption{Zone-pair firewall matrix; the same policy is encoded for IPv4 and IPv6. Any pair
+         not listed defaults to \textbf{drop}; security-relevant drops (WAN inbound,
+         DMZ $\rightarrow$ INTERNAL) are logged. Return traffic for established connections is
+         always accepted by a global stateful rule.}
+\label{tab:fw}
 \end{table}
 
 \section{Remote-Access VPN}
@@ -268,9 +271,9 @@ one product, everything the rest of the build leans on: an \textbf{LDAP} directo
   \item \textbf{Certificate authority.} The FreeIPA CA issues the TLS certificates for
         \emph{all} internal services (the REST API, Grafana, ntopng, LDAPS, and the etcd /
         PostgreSQL replication layer). Certificates are requested and auto-renewed by
-        \code{certmonger} on each host, so nothing is hand-managed or self-signed. The
-        public CA certificate is committed at \code{dmz-ldap/kyber-ipa-ca.crt}; trusting it
-        is the one setup step every client needs.
+        \code{certmonger} on each host, so nothing is hand-managed or self-signed. Every
+        client trusts this one CA, which is the single setup step needed for internal HTTPS
+        to validate.
 \end{itemize}
 
 \begin{table}[htbp]
@@ -302,7 +305,7 @@ one-to-many relationship --- \textbf{customers} and their \textbf{orders} (delet
 customer cascades to their orders) --- with full create/read/update/delete operations on
 each. Data lives in PostgreSQL, so it survives restarts.
 
-Three behaviours satisfy specific requirements of the brief:
+Three behaviours are worth highlighting:
 
 \begin{description}[leftmargin=1.4em,style=nextline]
   \item[Content negotiation] The same resource is returned as \textbf{JSON}, \textbf{XML},
@@ -318,9 +321,8 @@ Three behaviours satisfy specific requirements of the brief:
     HTTP/1.1, and listens on \textbf{both IPv4 and IPv6}.
 \end{description}
 
-The application source is version-controlled under \code{dmz-app-01/app/}; the database
-password and directory settings are supplied from an environment file on the host and are
-never committed.
+The database password and directory settings are supplied from an environment file on the
+host, never embedded in the application code.
 
 \section{High Availability \& the Data Tier (RAFT)}
 \label{sec:ha}
@@ -342,34 +344,29 @@ consensus store; its consumer is \textbf{Patroni}, which manages PostgreSQL as a
 \textbf{auto-failover primary plus hot standby} with streaming replication. Patroni records
 leadership in etcd, so there is never a split brain, and if the primary node fails the
 standby is promoted automatically. The API connects with a multi-host database URL and
-always lands on whichever node is currently primary --- no manual intervention. This is the
-brief's ``RAFT on at least three machines, highly available'' requirement, and it removes
+always lands on whichever node is currently primary --- no manual intervention. This removes
 what was previously a single database server as a point of failure. All of this traffic is
 internal to the DMZ and secured with FreeIPA-issued certificates.
 
 \section{Publishing Services to the Outside World}
 \label{sec:publish}
 
-The company owns exactly one public IPv4 address but wants name-based access to more than
-one service, so the edge does two different things per stack:
+The company owns exactly one public IPv4 address but serves several named HTTPS services
+(\code{api}, \code{grafana}, \code{ntopng}), so the edge works differently per stack:
 
 \begin{itemize}
   \item \textbf{IPv4} --- the router performs \textbf{destination NAT}: inbound
-        \code{88.200.24.237:443} is forwarded to the internal API VIP. On the VIP, a
-        lightweight \textbf{SNI edge} (nginx in TLS-passthrough mode) reads the requested
-        hostname from the TLS handshake and routes the still-encrypted connection to the
-        right backend. One public address and one port thus serve multiple named services,
-        with end-to-end TLS preserved (no certificates are moved to the edge).
+        \code{88.200.24.237:443} is forwarded to the internal VIP. On the VIP, a lightweight
+        \textbf{SNI edge} (nginx in TLS-passthrough mode) reads the requested hostname from
+        the TLS handshake and forwards the still-encrypted connection to the matching
+        backend, so one address and one port serve all three names with end-to-end TLS
+        preserved (no certificates are moved to the edge).
   \item \textbf{IPv6} --- no NAT is needed: every server already has a globally routable
-        address, so the public DNS name points straight at it and the router simply routes.
+        address, so each service's name points straight at it and the router simply routes.
 \end{itemize}
 
-Security posture at the edge: \textbf{only the REST API is published}. The Grafana and
-ntopng dashboards are administrative and are deliberately kept off the public internet on
-both stacks (closed at the SNI edge on IPv4, and at the perimeter firewall on IPv6); internal
-and VPN users reach them normally. Because there is no registered public domain, genuinely
-external clients map the service names to the public address via a local hosts file --- the
-report notes this rather than configuring public DNS.
+There is no registered public domain, so external clients map the three service names to the
+public address with a local hosts file.
 
 \section{Monitoring \& Flow Analysis}
 \label{sec:mon}
@@ -390,21 +387,21 @@ Monitoring lives on \code{kyber-mon} and has two complementary halves:
         each box}.
 \end{itemize}
 
-Both dashboards are internal/admin-only (Section~\ref{sec:publish}).
+Both dashboards are served over HTTPS with FreeIPA certificates and are reachable by name,
+like the API (Section~\ref{sec:publish}).
 
 \section{Clients \& the IPv6-only Segment}
 \label{sec:clients}
 
-Two end-user workstations on the internal segment satisfy the \textbf{heterogeneous-OS}
-requirement and double as the acceptance-test clients: \code{kyber-ws-01} (Ubuntu Desktop)
-and \code{kyber-ws-02} (Windows Server with Desktop Experience). Both take dynamic
-leases, trust the FreeIPA CA, and are used to exercise the REST API end to end (content
-negotiation, HTTP/2, IPv6 reachability, and the write-authorisation cases).
+Two end-user workstations on the internal segment run deliberately \textbf{different
+operating systems}: \code{kyber-ws-01} (Ubuntu Desktop, Linux) and \code{kyber-ws-02}
+(Windows Server with Desktop Experience). Both take dynamic leases, trust the FreeIPA CA, and
+are used to verify the REST API end to end (content negotiation, HTTP/2, IPv6 reachability,
+and the write-authorisation cases).
 
-The \textbf{IPv6-only segment} is demonstrated by \code{kyber-ipv6}, a host with \emph{no
-IPv4 stack at all}. It auto-configures a ULA address by SLAAC and reaches the internet
-purely over IPv6 through NPTv6 (Section~\ref{sec:addr}) --- proof that the ULA + prefix-
-translation design works for real outbound traffic.
+The \textbf{IPv6-only segment} carries \code{kyber-ipv6}, a host with \emph{no IPv4 stack at
+all}. It auto-configures a ULA address by SLAAC and reaches the internet purely over IPv6
+through NPTv6 (Section~\ref{sec:addr}).
 
 \section{Operating the Environment}
 \label{sec:ops}
@@ -412,31 +409,24 @@ translation design works for real outbound traffic.
 A few things to know when you take over:
 
 \begin{itemize}
-  \item \textbf{The repository is the documentation.} Each host has a numbered series of
-        runbooks (\code{00-}, \code{01-}, \dots) with the exact final-state configuration;
-        \code{kyber-project-plan.md} is the master task list and acceptance criteria, keyed
-        by IDs (\code{N6}, \code{S3.8}, \dots) that the runbooks cite. The \code{tests/}
-        directory holds paste-able acceptance checks for everything that is built.
-  \item \textbf{The router config is snapshotted, redacted.}
-        \code{vyos/snapshot-config.boot} is the live router configuration with secrets
-        (private keys, password hashes) stripped, refreshed via
-        \code{vyos/update-snapshot.sh} after every change. \textbf{Never commit a raw
-        \code{config.boot}} --- it contains cleartext private keys.
-  \item \textbf{Secrets live on the boxes, not in git.} Service passwords and the like are
-        in root-owned files on each host (for example the API's environment file); only
-        public material (such as the CA certificate) is committed.
-  \item \textbf{Reaching things.} Bring up the VPN, then SSH directly or hop via the router
-        as a jump host. Inside, rely on \code{kyber.local} names --- they resolve to the
-        right private addresses.
+  \item \textbf{Reaching things.} Management is VPN-only: bring up the VPN, then SSH to a
+        host directly or hop through the router as a jump host. Inside, rely on
+        \code{kyber.local} names --- they resolve to the right private addresses.
+  \item \textbf{Change management.} The router's running configuration is kept as a redacted
+        export --- private keys and password hashes removed --- refreshed after every change,
+        so there is always an up-to-date copy that holds no secrets. Each host's build is
+        recorded step by step, so any box can be rebuilt from scratch.
+  \item \textbf{Secrets.} Service passwords stay in root-owned files on each host and never
+        leave it; only public material, such as the CA certificate, is shared.
 \end{itemize}
 
-\paragraph{Not built (and why).} A handful of the brief's \emph{optional} items were left
-out of scope and are called out here so nobody goes looking for them: \textbf{HTTP/3
-(QUIC)} and a \textbf{GraphQL} mirror of the API, an \textbf{IDS/IPS} (Suricata), and
-\textbf{public DNS} (there is no registered domain, so external clients use a local hosts
-file). Everything else in the brief --- segmentation, dual-stack addressing, NAT and NPTv6,
-DHCP/DHCPv6/SLAAC, split DNS, NTP, the dual-stack firewall, the LDAP-authenticated VPN, the
-TLS REST API with content negotiation and HA, the FreeIPA directory, SNMP-based monitoring
-with Grafana, NetFlow analysis, and the RAFT cluster --- is built and verified.
+\paragraph{Not built (and why).} A few \emph{optional} features were intentionally left out
+of scope, called out here so nobody goes looking for them: \textbf{HTTP/3 (QUIC)} and a
+\textbf{GraphQL} mirror of the API, an \textbf{IDS/IPS} (Suricata), and \textbf{public DNS}
+(there is no registered domain, so external clients use a local hosts file). Everything else
+described above --- segmentation, dual-stack addressing, NAT and NPTv6, DHCP/DHCPv6/SLAAC,
+split DNS, NTP, the dual-stack firewall, the LDAP-authenticated VPN, the TLS REST API with
+content negotiation and HA, the FreeIPA directory, SNMP-based monitoring with Grafana,
+NetFlow analysis, and the RAFT cluster --- is built and running.
 
 \end{document}
