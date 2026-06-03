@@ -106,6 +106,13 @@ set firewall ipv4 name INTERNAL-DMZ rule 31 destination port '636'
 set firewall ipv4 name INTERNAL-DMZ rule 31 action 'accept'
 # If you domain-join the clients (opt S9.1), also allow Kerberos:
 # rule 32 tcp_udp 88 accept ; rule 33 tcp_udp 464 accept
+# CRL/OCSP to the FreeIPA CA host ONLY — Windows/Schannel revocation checks
+# (without this, curl.exe gives 0x80092013 CRYPT_E_REVOCATION_OFFLINE -> http 000).
+set firewall ipv4 name INTERNAL-DMZ rule 35 description 'HTTP to FreeIPA CA — CRL/OCSP revocation  (Schannel)'
+set firewall ipv4 name INTERNAL-DMZ rule 35 protocol 'tcp'
+set firewall ipv4 name INTERNAL-DMZ rule 35 destination address '192.168.7.30'
+set firewall ipv4 name INTERNAL-DMZ rule 35 destination port '80'
+set firewall ipv4 name INTERNAL-DMZ rule 35 action 'accept'
 
 set firewall ipv6 name INTERNAL-DMZ6 default-action 'drop'
 set firewall ipv6 name INTERNAL-DMZ6 rule 20 protocol 'tcp'
@@ -120,6 +127,11 @@ set firewall ipv6 name INTERNAL-DMZ6 rule 30 action 'accept'
 set firewall ipv6 name INTERNAL-DMZ6 rule 31 protocol 'tcp'
 set firewall ipv6 name INTERNAL-DMZ6 rule 31 destination port '636'
 set firewall ipv6 name INTERNAL-DMZ6 rule 31 action 'accept'
+set firewall ipv6 name INTERNAL-DMZ6 rule 35 description 'HTTP to FreeIPA CA — CRL/OCSP revocation  (Schannel)'
+set firewall ipv6 name INTERNAL-DMZ6 rule 35 protocol 'tcp'
+set firewall ipv6 name INTERNAL-DMZ6 rule 35 destination address '2001:1470:fffd:99::30'
+set firewall ipv6 name INTERNAL-DMZ6 rule 35 destination port '80'
+set firewall ipv6 name INTERNAL-DMZ6 rule 35 action 'accept'
 ```
 
 ### 1h. INTERNAL → LOCAL

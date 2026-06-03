@@ -116,6 +116,7 @@ Traffic from internal workstations to DMZ servers.
 | 32 | TCP+UDP | 88 | accept | Kerberos — required if workstations join FreeIPA domain (optional S9.1). |
 | 33 | TCP+UDP | 464 | accept | kpasswd — Kerberos password change (optional S9.1). |
 | 34 | TCP   | 389  | drop   | Plain LDAP not permitted. LDAPS (636) must be used for all directory traffic. |
+| 35 | TCP   | 80   | accept | HTTP to the **FreeIPA CA host only** (`192.168.7.30` / `2001:1470:fffd:99::30`) — CRL/OCSP retrieval so Windows/Schannel clients can complete certificate revocation checks. Without it, `curl.exe`/Schannel fails the TLS handshake with `0x80092013 CRYPT_E_REVOCATION_OFFLINE` (Linux/OpenSSL clients are unaffected — they don't CRL-check by default). Destination-restricted to the CA; this is *not* a general port-80 opening to the DMZ. |
 | 999 | any  | any  | drop   | Everything else. Workstations have no business reaching Prometheus (9090), etcd (2379), PostgreSQL (5432), or SNMP (161) directly. |
 
 ### INTERNAL → LOCAL
@@ -241,7 +242,7 @@ to the DMZ directly is not needed. This block covers service access and server a
 | TCP/5432 (PostgreSQL) | Database replication is intra-DMZ. No external or internal-to-DMZ access needed. |
 | TCP/2379-2380 (etcd) | Intra-DMZ cluster traffic only. |
 | TCP/389 (plain LDAP) | Dropped explicitly. All directory traffic must use LDAPS (636). |
-| TCP/80 (HTTP) inbound | REST API is HTTPS-only. nginx redirects 80→443 on the server; no need to expose port 80 on the firewall. |
+| TCP/80 (HTTP) inbound | REST API is HTTPS-only. nginx redirects 80→443 on the server; no need to expose port 80 on the firewall. *One narrow exception:* INTERNAL→DMZ rule 35 permits tcp/80 to the FreeIPA CA host (`.30`/`::30`) only, for CRL/OCSP revocation — never to the API/nginx. |
 | UDP/161 (SNMP) except from 192.168.7.20 | SNMP community strings are not encrypted; restricting to the known monitoring source prevents information leakage. |
 | TCP/443 (IPA Web UI) from WAN | FreeIPA admin interface is internal-only. No external access. |
 
